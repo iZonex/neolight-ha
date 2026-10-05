@@ -19,6 +19,7 @@ import time
 
 import aiomqtt
 
+from mobile_api import MobileApiError
 from neolight_native import session_config
 from tuya_ipc_p2p_sdk.signaling.envelope import decode_payload
 
@@ -60,44 +61,46 @@ def _summarize(payload: bytes, local_key: str) -> dict:
 
 
 async def main(seconds: int = 600) -> None:
-    config, identity, _ = await session_config()
-    # An independent client must not disconnect the active P2P media session.
-    identity = replace(identity, client_id=identity.client_id.replace("native_", "observe_"))
     context = ssl.create_default_context()
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
     state = Path("/state")
-    app_key = json.loads((state / "vendor_config.json").read_text())["static_fields"]["clientId"]
-    ecode = json.loads((state / "runtime_session.json").read_text())["ecode"]
-    msid = hashlib.md5((hashlib.md5(app_key.encode()).hexdigest() + ecode).encode()).hexdigest()[-16:]
-    topics = [f"smart/mb/in/{config.device_id}", f"/av/u/{msid}"]
-    async with aiomqtt.Client(
-        hostname=identity.host, port=identity.port, username=identity.username,
-        password=identity.password, identifier=identity.client_id,
-        tls_context=context, clean_session=True,
-    ) as client:
-        for index, topic in enumerate(topics):
-            try:
-                await client.subscribe(topic, qos=1)
-                print(json.dumps({"subscribed": index}), flush=True)
-            except aiomqtt.MqttError as error:
-                print(json.dumps({"subscription_error": index, "type": type(error).__name__}), flush=True)
-        deadline = time.monotonic() + seconds
-        messages = client.messages
-        while time.monotonic() < deadline:
-            try:
-                async with asyncio.timeout(min(5, deadline - time.monotonic())):
-                    message = await anext(messages)
-            except TimeoutError:
-                continue
-            payload = message.payload
-            if not isinstance(payload, bytes):
-                continue
-            print(json.dumps({
-                "observed_at": time.time(),
-                "topic_index": next((i for i, topic in enumerate(topics) if str(message.topic) == topic), -1),
-                **_summarize(payload, config.local_key),
-            }), flush=True)
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        try:
+            config, identity, _ = await session_config()
+            # A distinct client ID leaves the active P2P media session alone.
+            identity = replace(identity, client_id=identity.client_id.replace("native_", "observe_"))
+            app_key = json.loads((state / "vendor_config.json").read_text())["static_fields"]["clientId"]
+            ecode = json.loads((state / "runtime_session.json").read_text())["ecode"]
+            msid = hashlib.md5((hashlib.md5(app_key.encode()).hexdigest() + ecode).encode()).hexdigest()[-16:]
+            topics = [f"smart/mb/in/{config.device_id}", f"/av/u/{msid}"]
+            async with aiomqtt.Client(
+                hostname=identity.host, port=identity.port, username=identity.username,
+                password=identity.password, identifier=identity.client_id,
+                tls_context=context, clean_session=True,
+            ) as client:
+                for index, topic in enumerate(topics):
+                    await client.subscribe(topic, qos=1)
+                    print(json.dumps({"subscribed": index}), flush=True)
+                messages = client.messages
+                while time.monotonic() < deadline:
+                    try:
+                        async with asyncio.timeout(min(5, deadline - time.monotonic())):
+                            message = await anext(messages)
+                    except TimeoutError:
+                        continue
+                    payload = message.payload
+                    if not isinstance(payload, bytes):
+                        continue
+                    print(json.dumps({
+                        "observed_at": time.time(),
+                        "topic_index": next((i for i, topic in enumerate(topics) if str(message.topic) == topic), -1),
+                        **_summarize(payload, config.local_key),
+                    }), flush=True)
+        except (aiomqtt.MqttError, MobileApiError, OSError, TimeoutError, KeyError) as error:
+            print(json.dumps({"reconnecting_after": type(error).__name__}), flush=True)
+            await asyncio.sleep(min(5, max(0, deadline - time.monotonic())))
 
 
 if __name__ == "__main__":
