@@ -1,12 +1,12 @@
 {
   "domain": "neolight",
   "name": "NeoLight ALPHA Hybrid",
-  "version": "0.3.0a2",
+  "codeowners": ["@iZonex"],
   "config_flow": true,
+  "dependencies": ["stream"],
+  "documentation": "https://github.com/iZonex/neolight-ha/blob/main/docs/INSTALL.md",
   "integration_type": "device",
   "iot_class": "cloud_polling",
-  "dependencies": ["stream"],
-  "codeowners": ["@iZonex"],
-  "documentation": "https://github.com/iZonex/neolight-ha/blob/main/docs/INSTALL.md",
-  "issue_tracker": "https://github.com/iZonex/neolight-ha/issues"
+  "issue_tracker": "https://github.com/iZonex/neolight-ha/issues",
+  "version": "0.3.0a2"
 }
