@@ -33,8 +33,9 @@ The native bridge and local monitor RTSP path are the current media route.
 
 ## Install
 
-Read [installation](docs/INSTALL.md) before copying the integration or starting
-containers. New installations use the Home Assistant UI and store private
+Install the Home Assistant component through [HACS as a custom repository](docs/HACS.md)
+or [manually](docs/INSTALL.md). Read the full installation guide before starting
+the media containers. New installations use the Home Assistant UI and store private
 runtime settings under `/config/neolight`; no account credentials belong in
 this repository. A local-only camera can be configured without an app profile.
 Cloud controls require a private app profile obtained from your own NeoLight
@@ -43,7 +44,8 @@ app installation.
 For the observed protocol and known limits, see [architecture](docs/ARCHITECTURE.md).
 For development and publication policy, see [contributing](CONTRIBUTING.md)
 and [security](SECURITY.md). Outstanding release work is tracked in the
-[roadmap](docs/ROADMAP.md).
+[roadmap](docs/ROADMAP.md). Contributors supporting another monitor or entrance
+panel should follow the [reverse-engineering guide](docs/REVERSE_ENGINEERING.md).
 
 ## Safety
 

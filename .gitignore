@@ -5,6 +5,8 @@
 !/.dockerignore
 !/.env.compose.example
 !/README.md
+!/hacs.json
+!/.github/
 !/LICENSE
 !/CONTRIBUTING.md
 !/SECURITY.md

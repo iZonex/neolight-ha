@@ -6,8 +6,9 @@ Back up Home Assistant before installing.
 
 ## 1. Add the Home Assistant integration
 
-Copy `custom_components/neolight` into the Home Assistant configuration
-directory's `custom_components` folder, then restart Home Assistant. In
+Use [HACS custom repository installation](HACS.md), or copy
+`custom_components/neolight` into the Home Assistant configuration directory's
+`custom_components` folder, then restart Home Assistant. In
 **Settings → Devices & services → Add integration**, select **NeoLight**.
 
 Enter the monitor IP, the DOOR MainStream UUID, and its RTSP credentials. The
