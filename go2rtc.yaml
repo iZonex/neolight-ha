@@ -1,0 +1,8 @@
+api:
+  listen: 127.0.0.1:1985
+rtsp:
+  listen: 127.0.0.1:8556
+streams:
+  neolight_native_audio:
+  neolight_native_video:
+  neolight_door_with_audio:

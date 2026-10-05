@@ -1,0 +1,40 @@
+services:
+  go2rtc:
+    image: alexxit/go2rtc@sha256:675c318b23c06fd862a61d262240c9a63436b4050d177ffc68a32710d9e05bae
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ./go2rtc.yaml:/config/go2rtc.yaml:ro
+
+  native:
+    build:
+      context: .
+      dockerfile: native_bridge/Dockerfile
+    network_mode: host
+    restart: unless-stopped
+    depends_on: [go2rtc]
+    environment:
+      NEOLIGHT_STATE: /state
+    volumes:
+      - ${NEOLIGHT_HA_CONFIG:?Set NEOLIGHT_HA_CONFIG}/neolight:/state:ro
+
+  avmux:
+    build:
+      context: .
+      dockerfile: native_bridge/Dockerfile
+    command: [python, -u, /app/avmux.py]
+    network_mode: host
+    restart: unless-stopped
+    depends_on: [go2rtc, native]
+    environment:
+      NEOLIGHT_STATE: /state
+    volumes:
+      - ${NEOLIGHT_HA_CONFIG:?Set NEOLIGHT_HA_CONFIG}/neolight:/state:ro
+
+  scrypted:
+    profiles: [homekit]
+    image: ghcr.io/koush/scrypted@sha256:e78b4fcecdd6c61acaaf22b50ccef303c738da58cc0be57afdb116521df52296
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ${NEOLIGHT_SCRYPTED_VOLUME:-./scrypted-volume}:/server/volume

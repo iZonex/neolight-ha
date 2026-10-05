@@ -1,0 +1,42 @@
+# Publish only the maintained product files. Local reverse-engineering notes,
+# captures, runtime snapshots, and one-off probes stay outside Git.
+/*
+!/.gitignore
+!/.dockerignore
+!/.env.compose.example
+!/README.md
+!/LICENSE
+!/CONTRIBUTING.md
+!/SECURITY.md
+!/compose.yaml
+!/go2rtc.yaml
+!/custom_components/
+!/native_bridge/
+!/scrypted-neolight/
+!/docs/
+!/tests/
+
+# Private runtime data and generated artifacts inside allowed directories.
+**/.DS_Store
+**/._*
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/node_modules/
+**/out/
+**/dist/
+**/*.log
+**/*.db
+**/*.sqlite*
+**/*.key
+**/*.pem
+**/*.pcap
+**/*.pcapng
+**/*.wav
+**/*.mp4
+**/*.jpg
+**/*.jpeg
+/custom_components/neolight/vendor_config.json
+/custom_components/neolight/runtime_session.json
+/scrypted-neolight/deploy_local.py
+/scrypted-neolight/README.local.md

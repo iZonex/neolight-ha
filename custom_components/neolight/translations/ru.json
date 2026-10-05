@@ -1,0 +1,94 @@
+{
+  "options": {
+    "step": {
+      "init": {
+        "title": "Учётная запись NeoLight",
+        "description": "Укажите учётную запись, к которой привязан монитор. Оставьте пароль пустым, чтобы сохранить прежний.",
+        "data": {
+          "email": "Электронная почта",
+          "password": "Пароль",
+          "country_code": "Телефонный код страны",
+          "auto_unlock_on_ring": "Автоматически открывать при звонке",
+          "auto_unlock_relay": "Какой замок открывать",
+          "auto_unlock_delay": "Задержка открытия, секунд",
+          "enable_camera": "Камера",
+          "enable_doorbell": "События звонка",
+          "enable_lock_1": "Замок 1 и открытие двери",
+          "enable_lock_2": "Замок 2 (сначала проверьте, что он открывает)",
+          "restream_url": "RTSP-адрес камеры",
+          "homekit_ring_url": "URL сигнала звонка HomeKit",
+          "stream_id": "UUID потока RTSP",
+          "rtsp_user": "Имя пользователя RTSP",
+          "rtsp_password": "Пароль RTSP"
+        }
+      }
+    },
+    "error": {
+      "invalid_account": "Укажите почту, пароль и код страны",
+      "cannot_auth": "Не удалось войти или получить привязанное устройство",
+      "invalid_stream_id": "Укажите корректный UUID потока",
+      "invalid_stream_url": "Укажите RTSP-адрес",
+      "invalid_ring_url": "Укажите HTTP(S)-адрес"
+    }
+  },
+  "config": {
+    "step": {
+      "reconfigure": {
+        "title": "Настройки NeoLight",
+        "description": "Учётная запись и автоматическое открытие. Оставьте пароль пустым, чтобы сохранить прежний.",
+        "data": {
+          "email": "Электронная почта",
+          "password": "Пароль",
+          "country_code": "Телефонный код страны",
+          "auto_unlock_on_ring": "Автоматически открывать при звонке",
+          "auto_unlock_relay": "Какой замок открывать",
+          "auto_unlock_delay": "Задержка открытия, секунд",
+          "enable_camera": "Камера",
+          "enable_doorbell": "События звонка",
+          "enable_lock_1": "Замок 1 и открытие двери",
+          "enable_lock_2": "Замок 2 (сначала проверьте, что он открывает)",
+          "restream_url": "RTSP-адрес камеры",
+          "homekit_ring_url": "URL сигнала звонка HomeKit",
+          "stream_id": "UUID потока RTSP",
+          "rtsp_user": "Имя пользователя RTSP",
+          "rtsp_password": "Пароль RTSP"
+        }
+      },
+      "user": {
+        "title": "Подключение монитора NeoLight",
+        "description": "UUID потока можно оставить пустым. Камера появится, если он указан; выдачу видео монитором проверим отдельно.",
+        "data": {
+          "host": "IP-адрес монитора",
+          "stream_id": "UUID потока RTSP",
+          "rtsp_user": "Имя пользователя RTSP",
+          "rtsp_password": "Пароль RTSP"
+        }
+      },
+      "cloud": {
+        "title": "Приложение NeoLight и видео",
+        "description": "Вставьте личный профиль приложения для звонков и открытия двери. Оставьте пустым для локальной камеры. Данные хранятся в приватном хранилище Home Assistant.",
+        "data": {
+          "app_profile": "JSON-профиль приложения",
+          "email": "Почта NeoLight",
+          "password": "Пароль NeoLight",
+          "country_code": "Телефонный код страны",
+          "restream_url": "RTSP-адрес камеры"
+        }
+      }
+    },
+    "error": {
+      "invalid_host": "Укажите IP-адрес монитора",
+      "invalid_stream_id": "Укажите корректный UUID потока",
+      "cannot_connect": "Монитор NeoLight по этому адресу не найден",
+      "invalid_account": "Укажите почту, пароль и код страны",
+      "cannot_auth": "Не удалось войти или получить привязанное устройство",
+      "invalid_profile": "Некорректный JSON-профиль приложения",
+      "invalid_stream_url": "Укажите RTSP-адрес",
+      "invalid_ring_url": "Укажите HTTP(S)-адрес"
+    },
+    "abort": {
+      "already_configured": "Этот монитор уже добавлен",
+      "single_instance_allowed": "Пока поддерживается один монитор на установку Home Assistant"
+    }
+  }
+}
