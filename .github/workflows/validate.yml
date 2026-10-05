@@ -17,6 +17,7 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
+          comment: "false"
 
   hassfest:
     name: Home Assistant hassfest
