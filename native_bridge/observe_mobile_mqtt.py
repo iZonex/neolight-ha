@@ -53,6 +53,7 @@ def _summarize(payload: bytes, local_key: str) -> dict:
         "header_type": header.get("type"),
         "session_hash": _digest(header.get("sessionid")),
         "message_keys": sorted(message)[:24],
+        "body_keys": sorted(body)[:24],
         "top_keys": sorted(data)[:24],
         "bytes": len(payload),
     }
