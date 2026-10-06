@@ -6,6 +6,11 @@ from collections.abc import Mapping
 from typing import Any
 
 
+def started_new_call(previous: int | None, current: int | None) -> bool:
+    """The APK treats callStatus=0 as a currently ringing call."""
+    return previous is not None and previous != 0 and current == 0
+
+
 def ring_channels(schema: list[Mapping[str, Any]]) -> dict[int, int]:
     """Return channel -> DP ID for read-only Ring/Normal enum controls."""
     found: dict[int, int] = {}

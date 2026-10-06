@@ -4,6 +4,8 @@ Call control, audio and relay commands will be added only after the protocol
 for the paired monitor has been verified.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 from urllib.parse import quote
@@ -23,6 +25,7 @@ class MonitorState:
     cloud_online: bool = False
     dps: Mapping[str, Any] = field(default_factory=dict)
     schema: list[Mapping[str, Any]] = field(default_factory=list)
+    call_status: int | None = None
 
 
 class MonitorClient:

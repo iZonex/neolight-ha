@@ -16,6 +16,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import AUTO_UNLOCK_SAFETY_HOLD, DOMAIN
+from .call_state import started_new_call
 from .release_policy import release_mode
 from .ring_message import RingDeduplicator, doorbell_event
 from .settings import runtime_directory
@@ -55,6 +56,9 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
         )
         initial_raw = (runtime.coordinator.data.dps or {}).get("185") if runtime.coordinator.data else None
         self._ring_deduplicator = RingDeduplicator(initial_raw)
+        self._last_call_status = runtime.coordinator.data.call_status if runtime.coordinator.data else None
+        self._last_trigger = 0.0
+        self._active_call_triggered = False
         self._pending_unlock: asyncio.Task | None = None
         self._test_consumed = False
         self._video_router = VideoRouter(
@@ -78,7 +82,18 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
                 options={**self._entry.options, "auto_unlock_test_once": False,
                          "auto_unlock_test_deadline": 0},
             )
-        if self._ring_deduplicator.observe(raw):
+        fresh_snapshot = self._ring_deduplicator.observe(raw)
+        call_status = state.call_status if state else None
+        fresh_call = started_new_call(self._last_call_status, call_status)
+        if call_status is not None:
+            self._last_call_status = call_status
+            if call_status != 0:
+                self._active_call_triggered = False
+        if fresh_call or (fresh_snapshot and not self._active_call_triggered
+                          and time.monotonic() - self._last_trigger > 30):
+            self._last_trigger = time.monotonic()
+            if call_status == 0:
+                self._active_call_triggered = True
             self._trigger_event("ring")
             if (self._entry.options.get("route_video_on_ring")
                     and self._entry.options.get("call_video_channel", 0) > 0):
@@ -86,16 +101,17 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
                 self.hass.async_create_task(self._notify_after_video_route(selected))
             else:
                 self.hass.async_create_task(self._notify_homekit_doorbell())
-            event = doorbell_event(raw)
+            event = doorbell_event(raw) if fresh_snapshot else None
+            captured_at = event[0] if event else int(time.time())
             mode = release_mode(
-                self._entry.options, event[0], time.time(), AUTO_UNLOCK_SAFETY_HOLD
-            ) if event else None
+                self._entry.options, captured_at, time.time(), AUTO_UNLOCK_SAFETY_HOLD
+            )
             if mode and (self._pending_unlock is None or self._pending_unlock.done()):
                 if mode != "once" or not self._test_consumed:
                     self._test_consumed = mode == "once"
                     _LOGGER.info("NeoLight auto unlock requested for fresh ring (%s)", mode)
                     self._pending_unlock = self.hass.async_create_task(
-                        self._auto_unlock(event[0], mode)
+                        self._auto_unlock(captured_at, mode)
                     )
         super()._handle_coordinator_update()
 

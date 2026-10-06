@@ -93,9 +93,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def fetch_state() -> MonitorState:
         nonlocal last_schema
-        local_result, cloud_result = await asyncio.gather(
+        local_result, cloud_result, call_result = await asyncio.gather(
             client.probe(),
             mobile.read_device(vendor["paired_device_id"]) if mobile else asyncio.sleep(0, result=None),
+            mobile.request("m.ipc.doorbell.call.status.get", "1.0",
+                           {"devId": vendor["paired_device_id"]}) if mobile else asyncio.sleep(0, result=None),
             return_exceptions=True,
         )
         local_online = not isinstance(local_result, Exception)
@@ -124,6 +126,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             cloud_online=cloud_online,
             dps=cloud_result.get("dps", {}) if isinstance(cloud_result, dict) else {},
             schema=schema,
+            call_status=(call_result.get("callStatus")
+                         if isinstance(call_result, dict)
+                         and type(call_result.get("callStatus")) is int else None),
         )
 
     coordinator: DataUpdateCoordinator[MonitorState] = DataUpdateCoordinator(

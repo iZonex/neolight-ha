@@ -12,6 +12,12 @@ spec.loader.exec_module(module)
 
 
 class CallStateTests(unittest.TestCase):
+    def test_call_status_only_triggers_on_new_active_call(self):
+        self.assertTrue(module.started_new_call(2, 0))
+        self.assertFalse(module.started_new_call(None, 0))
+        self.assertFalse(module.started_new_call(0, 0))
+        self.assertFalse(module.started_new_call(2, 2))
+
     def test_resolves_only_read_only_doorbell_enums(self):
         valid = lambda code, dp_id: {"code": code, "id": dp_id, "type": "obj",
                                       "mode": "ro", "property": {"type": "enum",
