@@ -59,7 +59,8 @@
           "restream_url": "RTSP-адрес камеры",
           "stream_id": "UUID потока RTSP",
           "rtsp_user": "Имя пользователя RTSP",
-          "rtsp_password": "Пароль RTSP"
+          "rtsp_password": "Пароль RTSP",
+          "bridge_health_url": "URL состояния видеомоста (необязательно)"
         }
       },
       "account": {
@@ -81,7 +82,8 @@
       "invalid_call_video_channel": "Выберите канал вызова для автоматического переключения",
       "invalid_call_control_port": "Укажите порт управления вызовом для автоматического отбоя",
       "doorbell_required": "Включите события звонка перед автооткрытием",
-      "invalid_auto_unlock_relay": "Включите выбранную кнопку двери перед автооткрытием"
+      "invalid_auto_unlock_relay": "Включите выбранную кнопку двери перед автооткрытием",
+      "invalid_bridge_health_url": "Укажите HTTP(S)-адрес состояния видеомоста"
     }
   },
   "config": {
@@ -121,6 +123,25 @@
     "abort": {
       "already_configured": "Этот монитор уже добавлен",
       "single_instance_allowed": "Пока поддерживается один монитор на установку Home Assistant"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "app_call_signal": {
+        "name": "Сигнал звонка в приложении",
+        "state": {
+          "active": "Активный",
+          "no_app_call": "Нет вызова в приложении"
+        }
+      },
+      "video_bridge": {
+        "name": "Видеомост",
+        "state": {
+          "live": "Видео идёт",
+          "starting": "Запускается",
+          "stale": "Видео остановилось"
+        }
+      }
     }
   }
 }

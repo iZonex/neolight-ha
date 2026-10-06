@@ -36,6 +36,11 @@ expose an **End call** button. **End the call after automatic door release**
 uses the same command two seconds after the relay acknowledgement. This
 requires HA and the native bridge to share the host network namespace.
 
+The AV mux exposes read-only output progress at
+`http://127.0.0.1:38558/health`. The response contains only status, source,
+publisher presence, and seconds since video bytes last advanced. It is bound
+to loopback and contains no account or stream credentials.
+
 `observe_call_signaling.py` is a read-only diagnostic for the next ordinary
 call. Mount the HA integration's private config directory at `/state` and run
 it in a separate short-lived container using the native bridge image. It reuses

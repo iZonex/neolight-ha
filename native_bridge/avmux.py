@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import logging
 import os
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import signal
 import subprocess
+import threading
 import time
 from urllib.parse import quote
 from urllib.request import urlopen
@@ -21,7 +23,41 @@ NATIVE_AUDIO = os.environ.get("NEOLIGHT_NATIVE_AUDIO", "rtsp://127.0.0.1:8556/ne
 OUTPUT_URL = os.environ.get("NEOLIGHT_AV_OUTPUT", f"rtsp://127.0.0.1:8556/{STREAM}")
 HA_ENTRIES = Path(os.environ.get("NEOLIGHT_HA_ENTRIES", "/ha-storage/core.config_entries"))
 STATE = Path(os.environ.get("NEOLIGHT_STATE", "/state"))
+HEALTH_PORT = int(os.environ.get("NEOLIGHT_AV_HEALTH_PORT", "38558"))
 running = True
+health = {"source": None, "publisher": False, "started_at": None, "last_video_at": None}
+
+
+def health_snapshot(now: float | None = None) -> dict:
+    """Report actual output byte progress without exposing media credentials."""
+    now = time.monotonic() if now is None else now
+    age = (round(now - health["last_video_at"], 1)
+           if health["last_video_at"] is not None else None)
+    if health["publisher"] and age is not None and age <= 15:
+        status = "live"
+    elif health["started_at"] is not None and now - health["started_at"] < 25:
+        status = "starting"
+    else:
+        status = "stale"
+    return {"status": status, "source": health["source"],
+            "publisher": health["publisher"], "video_age_seconds": age}
+
+
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self) -> None:
+        if self.path != "/health":
+            self.send_error(404)
+            return
+        body = json.dumps(health_snapshot()).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, _format: str, *_args: object) -> None:
+        pass
 
 
 def monitor_video_url() -> str:
@@ -103,6 +139,8 @@ def publishing() -> tuple[bool, int] | None:
 def main() -> None:
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
+    server = ThreadingHTTPServer(("127.0.0.1", HEALTH_PORT), HealthHandler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
     backup = False
     startup_failures = 0
     while running:
@@ -113,6 +151,8 @@ def main() -> None:
             time.sleep(5)
             continue
         LOG.info("Starting %s video source", "native backup" if backup else "monitor RTSP")
+        health.update(source="native_backup" if backup else "monitor_rtsp",
+                      publisher=False, started_at=time.monotonic(), last_video_at=None)
         process = subprocess.Popen(command_for(backup, primary_video), stderr=subprocess.DEVNULL)
         started = time.monotonic()
         absent = 0
@@ -129,12 +169,15 @@ def main() -> None:
             if state is None:
                 continue
             active, video_bytes = state
+            health["publisher"] = active
+            if active and video_bytes != last_video_bytes:
+                health["last_video_at"] = time.monotonic()
             absent = 0 if active else absent + 1
             if absent >= 3:
                 LOG.warning("RTSP publisher disappeared; restarting FFmpeg")
                 break
             if active:
-                stalled = stalled + 1 if video_bytes <= last_video_bytes else 0
+                stalled = stalled + 1 if video_bytes == last_video_bytes else 0
                 last_video_bytes = video_bytes
                 if stalled >= 4:
                     LOG.warning("RTSP video stalled; restarting FFmpeg")
@@ -153,6 +196,7 @@ def main() -> None:
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait()
+        health["publisher"] = False
         if running:
             LOG.warning("FFmpeg exited (%s)", process.returncode)
             if return_primary:
@@ -165,6 +209,8 @@ def main() -> None:
             else:
                 startup_failures = 0
             time.sleep(3)
+    server.shutdown()
+    server.server_close()
 
 
 if __name__ == "__main__":

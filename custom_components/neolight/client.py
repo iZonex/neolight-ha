@@ -26,6 +26,7 @@ class MonitorState:
     dps: Mapping[str, Any] = field(default_factory=dict)
     schema: list[Mapping[str, Any]] = field(default_factory=list)
     call_status: int | None = None
+    video_health: Mapping[str, Any] | None = None
 
 
 class MonitorClient:

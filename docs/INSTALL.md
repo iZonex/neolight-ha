@@ -80,6 +80,14 @@ bridge holds one P2P session, publishes the monitor's audio, and combines it
 with the local RTSP video. If RTSP drops, the mux can temporarily use its
 lower frame rate P2P video.
 
+For video diagnostics in HA, open **NeoLight → Configure → Advanced media** and
+set **Video bridge health URL** to `http://127.0.0.1:38558/health` when HA and
+the mux share host networking. The **Video bridge** diagnostic sensor reports
+whether output video bytes are advancing, their age, and whether the mux is
+using the monitor RTSP source or the native backup. It does not judge image
+content. **App call signal** reports the cloud API's call flag; it does not
+measure whether the analog handset is physically on-hook.
+
 ## 3. Optional Apple Home doorbell
 
 Start an existing Scrypted installation or run the optional Compose service

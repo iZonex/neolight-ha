@@ -70,6 +70,14 @@ class OptionsValidationTests(unittest.TestCase):
             }, {"native_call_control_port": 0, "restream_url": "",
                 "stream_id": "", "rtsp_user": "", "rtsp_password": ""})
 
+    def test_health_endpoint_requires_http_url(self):
+        with self.assertRaisesRegex(ValueError, "invalid_bridge_health_url"):
+            MODULE.validate_option_section("advanced", {}, {
+                "native_call_control_port": 0, "bridge_health_url": "file:///secret",
+                "restream_url": "", "stream_id": "", "rtsp_user": "",
+                "rtsp_password": "",
+            })
+
     def test_password_is_preserved_when_account_page_is_saved(self):
         result = MODULE.validate_option_section(
             "account", {"password": "old-secret"},

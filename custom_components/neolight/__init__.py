@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import json
 import logging
 
+from aiohttp import ClientError, ClientTimeout
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
@@ -91,13 +92,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     last_schema: list = []
 
+    async def read_video_health() -> dict | None:
+        url = vendor.get("bridge_health_url")
+        if not url:
+            return None
+        try:
+            async with session.get(url, timeout=ClientTimeout(total=2)) as response:
+                if response.status != 200:
+                    return None
+                data = await response.json()
+                if (isinstance(data, dict) and data.get("status") in
+                        {"live", "starting", "stale"}):
+                    return data
+        except (ClientError, TimeoutError, ValueError):
+            pass
+        return None
+
     async def fetch_state() -> MonitorState:
         nonlocal last_schema
-        local_result, cloud_result, call_result = await asyncio.gather(
+        local_result, cloud_result, call_result, video_health = await asyncio.gather(
             client.probe(),
             mobile.read_device(vendor["paired_device_id"]) if mobile else asyncio.sleep(0, result=None),
             mobile.request("m.ipc.doorbell.call.status.get", "1.0",
                            {"devId": vendor["paired_device_id"]}) if mobile else asyncio.sleep(0, result=None),
+            read_video_health(),
             return_exceptions=True,
         )
         local_online = not isinstance(local_result, Exception)
@@ -129,6 +147,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             call_status=(call_result.get("callStatus")
                          if isinstance(call_result, dict)
                          and type(call_result.get("callStatus")) is int else None),
+            video_health=video_health if isinstance(video_health, dict) else None,
         )
 
     coordinator: DataUpdateCoordinator[MonitorState] = DataUpdateCoordinator(

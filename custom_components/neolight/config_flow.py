@@ -256,6 +256,7 @@ def option_section_schema(section: str, current: dict[str, Any]) -> vol.Schema:
         return vol.Schema({
             vol.Required("native_call_control_port", default=current.get("native_call_control_port", 0)):
                 vol.All(vol.Coerce(int), vol.Range(min=0, max=65535)),
+            vol.Optional("bridge_health_url", default=current.get("bridge_health_url", "")): str,
             vol.Optional("restream_url", default=current.get("restream_url", "")): str,
             vol.Optional("stream_id", default=current.get("stream_id", "")): str,
             vol.Optional("rtsp_user", default=current.get("rtsp_user", "")): str,

@@ -43,6 +43,10 @@ def validate_option_section(section: str, current: dict[str, Any], values: dict[
     elif section == "advanced":
         if combined.get("hangup_after_auto_unlock") and not combined["native_call_control_port"]:
             raise ValueError("invalid_call_control_port")
+        health_url = updates.get("bridge_health_url", "").strip()
+        if health_url and not health_url.startswith(("http://", "https://")):
+            raise ValueError("invalid_bridge_health_url")
+        updates["bridge_health_url"] = health_url
         url = updates["restream_url"].strip()
         stream_id = updates["stream_id"].strip().lower()
         if url and not url.startswith(("rtsp://", "rtsps://")):
