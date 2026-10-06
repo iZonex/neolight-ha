@@ -1,5 +1,7 @@
 """Home Assistant controls for NeoLight call behavior."""
 
+import logging
+
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -10,6 +12,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import AUTO_UNLOCK_SAFETY_HOLD, DOMAIN
 
+_LOGGER = logging.getLogger(__name__)
+
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
@@ -18,11 +22,12 @@ async def async_setup_entry(
     runtime = hass.data[DOMAIN][entry.entry_id]
     if AUTO_UNLOCK_SAFETY_HOLD:
         registry = entity_registry.async_get(hass)
-        old_entity = registry.async_get_entity_id(
-            "switch", DOMAIN, f"{entry.data['host']}_auto_unlock_on_ring"
-        )
-        if old_entity:
-            registry.async_remove(old_entity)
+        unique_id = f"{entry.data['host']}_auto_unlock_on_ring"
+        for old_entity in tuple(registry.entities.values()):
+            if (old_entity.domain == "switch" and old_entity.platform == DOMAIN
+                    and old_entity.unique_id == unique_id):
+                registry.async_remove(old_entity.entity_id)
+                _LOGGER.info("Removed the unavailable NeoLight auto unlock switch")
         return
     if runtime.mobile is not None:
         async_add_entities([NeoLightAutoUnlockSwitch(entry)])
