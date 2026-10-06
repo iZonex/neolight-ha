@@ -4,6 +4,7 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -15,6 +16,14 @@ async def async_setup_entry(
 ) -> None:
     """Show automatic opening directly on the NeoLight device page."""
     runtime = hass.data[DOMAIN][entry.entry_id]
+    if AUTO_UNLOCK_SAFETY_HOLD:
+        registry = entity_registry.async_get(hass)
+        old_entity = registry.async_get_entity_id(
+            "switch", DOMAIN, f"{entry.data['host']}_auto_unlock_on_ring"
+        )
+        if old_entity:
+            registry.async_remove(old_entity)
+        return
     if runtime.mobile is not None:
         async_add_entities([NeoLightAutoUnlockSwitch(entry)])
 

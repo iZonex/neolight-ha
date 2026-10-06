@@ -89,6 +89,7 @@ HomeKit Bridge; its physical action from Apple Home remains unverified.
 ## Known limits
 
 - Auto unlock is disabled in code until a fresh Vizit call signal is proven.
+  The unavailable switch from older alpha versions is removed on setup.
 - The current cloud doorbell event is polled and may miss a call. It must not
   drive an unlocking automation.
 - Incoming-call answer/hangup through HA is not implemented. Apple Home Live
