@@ -2,8 +2,12 @@
 !custom_components/
 !custom_components/neolight/
 !custom_components/neolight/mobile_api.py
+!custom_components/neolight/panel_protocol.py
 !native_bridge/
 !native_bridge/neolight_native.py
+!native_bridge/account_identity.py
 !native_bridge/protocol.py
 !native_bridge/avmux.py
 !native_bridge/observe_mobile_mqtt.py
+!native_bridge/call_signaling.py
+!native_bridge/observe_call_signaling.py

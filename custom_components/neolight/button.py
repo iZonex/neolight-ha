@@ -14,6 +14,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
+from .call_control import CallControlError, reset_call
 from .panel_protocol import PanelProfile
 
 
@@ -42,7 +43,34 @@ async def async_setup_entry(
                 if (old_entity.domain == "button" and old_entity.platform == DOMAIN
                         and old_entity.unique_id == unique_id):
                     registry.async_remove(old_entity.entity_id)
+    if entry.options.get("native_call_control_port", 0):
+        buttons.append(NeoLightEndCallButton(entry))
     async_add_entities(buttons)
+
+
+class NeoLightEndCallButton(ButtonEntity):
+    """Finish a stuck conversation using the local native bridge."""
+
+    _attr_has_entity_name = True
+    _attr_name = "End call"
+
+    def __init__(self, entry: ConfigEntry) -> None:
+        host = entry.data["host"]
+        self._port = entry.options["native_call_control_port"]
+        self._attr_unique_id = f"{host}_end_call"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, host)},
+            name="NeoLight ALPHA Hybrid",
+            manufacturer="NeoLight",
+            model="ALPHA Hybrid",
+            configuration_url=f"http://{host}/",
+        )
+
+    async def async_press(self) -> None:
+        try:
+            await reset_call(self._port)
+        except CallControlError as error:
+            raise HomeAssistantError(str(error)) from error
 
 
 class NeoLightRelayButton(ButtonEntity):

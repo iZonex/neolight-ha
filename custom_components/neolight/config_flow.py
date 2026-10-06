@@ -34,6 +34,9 @@ def account_schema(current: dict[str, Any]) -> vol.Schema:
         vol.Required("enable_doorbell", default=current.get("enable_doorbell", True)): bool,
         vol.Required("enable_lock_1", default=current.get("enable_lock_1", True)): bool,
         vol.Required("enable_lock_2", default=current.get("enable_lock_2", False)): bool,
+        vol.Required("native_call_control_port", default=current.get("native_call_control_port", 0)):
+            vol.All(vol.Coerce(int), vol.Range(min=0, max=65535)),
+        vol.Required("hangup_after_auto_unlock", default=current.get("hangup_after_auto_unlock", False)): bool,
         vol.Required("preferred_video_channel", default=current.get("preferred_video_channel", 0)):
             vol.All(vol.Coerce(int), vol.Range(min=0, max=32)),
         vol.Required("route_video_on_ring", default=current.get("route_video_on_ring", False)): bool,
@@ -78,6 +81,8 @@ async def validate_account(hass, vendor: dict[str, Any], current: dict[str, Any]
         "enable_doorbell": user_input["enable_doorbell"],
         "enable_lock_1": user_input["enable_lock_1"],
         "enable_lock_2": user_input["enable_lock_2"],
+        "native_call_control_port": user_input["native_call_control_port"],
+        "hangup_after_auto_unlock": user_input["hangup_after_auto_unlock"],
         "preferred_video_channel": user_input["preferred_video_channel"],
         "route_video_on_ring": user_input["route_video_on_ring"],
         "call_video_channel": user_input["call_video_channel"],
@@ -96,6 +101,8 @@ async def validate_account(hass, vendor: dict[str, Any], current: dict[str, Any]
         raise ValueError("invalid_ring_url")
     if options["route_video_on_ring"] and not options["call_video_channel"]:
         raise ValueError("invalid_call_video_channel")
+    if options["hangup_after_auto_unlock"] and not options["native_call_control_port"]:
+        raise ValueError("invalid_call_control_port")
     if "api_host" not in vendor:
         return options
     email = user_input["email"].strip()

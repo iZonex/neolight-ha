@@ -39,6 +39,7 @@ STATE = Path(os.environ.get("NEOLIGHT_STATE", "/state"))
 PUBLISH_URL = os.environ.get("NEOLIGHT_PUBLISH_URL", "rtsp://127.0.0.1:8556/neolight_native_audio")
 VIDEO_URL = os.environ.get("NEOLIGHT_VIDEO_URL", "rtsp://127.0.0.1:8556/neolight_native_video")
 TALK_PORT = int(os.environ.get("NEOLIGHT_TALK_PORT", "38556"))
+CALL_CONTROL_PORT = int(os.environ.get("NEOLIGHT_CALL_CONTROL_PORT", "38557"))
 VIDEO_TYPE = 0x00010003
 AUDIO_TYPE = 0x00010005
 CALL_MAX_AGE = 60
@@ -472,12 +473,41 @@ async def handle_talk(reader: asyncio.StreamReader, writer: asyncio.StreamWriter
                     peer, sent, signal_bytes, sent * 320, pending)
 
 
+async def handle_call_control(reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
+                              session: NeoLightSession) -> None:
+    """Recover a stuck off-hook monitor through a localhost-only command."""
+    try:
+        command = await asyncio.wait_for(reader.readline(), timeout=2)
+        if command != b"reset\n" or session.talk_active:
+            writer.write(b"busy\n")
+        else:
+            session.talk_active = True
+            try:
+                # This exact sequence cleared a stuck Vizit call in the field.
+                session.send_control(TALK_START_TYPE, 0)
+                await asyncio.sleep(0.4)
+                await session.hangup_active_call()
+                session.send_control(0, 1)
+                await asyncio.sleep(0.2)
+                writer.write(b"ok\n")
+                LOGGER.info("Local call reset sequence completed")
+            finally:
+                session.talk_active = False
+        await writer.drain()
+    except (OSError, asyncio.TimeoutError):
+        pass
+    finally:
+        writer.close()
+        await writer.wait_closed()
+
+
 async def run_once() -> None:
     config, identity, uid, _ = await session_config()
     ffmpeg, audio = await publish_process()
     video_ffmpeg, video = await video_publish_process()
     session = NeoLightSession(config, identity, uid, video.write, audio.write)
     talk_server: asyncio.AbstractServer | None = None
+    call_control_server: asyncio.AbstractServer | None = None
     async def log_ffmpeg() -> None:
         assert ffmpeg.stderr is not None
         async for line in ffmpeg.stderr:
@@ -495,6 +525,10 @@ async def run_once() -> None:
         session.enable_audio()
         talk_server = await asyncio.start_server(
             lambda reader, writer: handle_talk(reader, writer, session), "127.0.0.1", TALK_PORT,
+        )
+        call_control_server = await asyncio.start_server(
+            lambda reader, writer: handle_call_control(reader, writer, session),
+            "127.0.0.1", CALL_CONTROL_PORT,
         )
         LOGGER.info("P2P connected; native video, panel audio and localhost talk ready")
         closed = asyncio.create_task(session.async_wait_closed())
@@ -524,6 +558,9 @@ async def run_once() -> None:
         exited.cancel()
         video_exited.cancel()
     finally:
+        if call_control_server is not None:
+            call_control_server.close()
+            await call_control_server.wait_closed()
         if talk_server is not None:
             talk_server.close()
             await talk_server.wait_closed()

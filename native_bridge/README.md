@@ -29,6 +29,13 @@ calls addressed to the paired device. For a call type supported by the APK's
 video-call manager, Apple Home Talk sends protocol 308 `accept` and Talk end
 sends `stop`. These call controls are not yet physically confirmed on Vizit.
 
+The bridge also listens on `127.0.0.1:38557` for a local `reset` command.
+It sends the tested P2P Talk → Stop sequence to clear a stuck off-hook monitor.
+Set **Native bridge call control port** to `38557` in the HA integration to
+expose an **End call** button. **End the call after automatic door release**
+uses the same command two seconds after the relay acknowledgement. This
+requires HA and the native bridge to share the host network namespace.
+
 `observe_call_signaling.py` is a read-only diagnostic for the next ordinary
 call. Mount the HA integration's private config directory at `/state` and run
 it in a separate short-lived container using the native bridge image. It reuses

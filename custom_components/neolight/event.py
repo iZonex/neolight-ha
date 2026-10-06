@@ -16,6 +16,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import AUTO_UNLOCK_SAFETY_HOLD, DOMAIN
+from .call_control import CallControlError, reset_call
 from .call_state import started_new_call
 from .release_policy import release_mode
 from .ring_message import RingDeduplicator, doorbell_event
@@ -166,6 +167,13 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
                 "button", "press", {"entity_id": button_id}, blocking=True
             )
             _LOGGER.info("NeoLight auto unlock command acknowledged for %s", relay)
+            if self._entry.options.get("hangup_after_auto_unlock"):
+                await asyncio.sleep(2)
+                try:
+                    await reset_call(self._entry.options.get("native_call_control_port", 0))
+                    _LOGGER.info("NeoLight call ended after auto unlock")
+                except CallControlError as error:
+                    _LOGGER.warning("NeoLight auto unlock succeeded but call hangup failed: %s", error)
         except Exception:
             _LOGGER.exception("NeoLight auto unlock failed")
         finally:
