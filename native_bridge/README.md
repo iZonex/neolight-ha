@@ -42,3 +42,6 @@ the user starts Talk during that call. It skips the SDK's unsupported
 `doorbell` call type. Applicability to this analog adapter needs a call test.
 The HA integration also exposes read-only `Doorbell 1–4 ringing` diagnostic
 entities when the live schema advertises a Ring/Normal enum for those inputs.
+The HA ring entity additionally polls the APK's
+`m.ipc.doorbell.call.status.get` endpoint and treats a transition into
+`callStatus=0` as a fresh call when the snapshot alarm is absent.
