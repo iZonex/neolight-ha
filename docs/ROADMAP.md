@@ -25,6 +25,9 @@ and other wiring modes still need testing.
 
 - Verify Apple Home release physically and expose clear command failures.
 - Add answer and hangup in the HA interface, then test call audio lifecycle.
+- Confirm the call identifier and protocol 308 answer/stop events on this
+  monitor before enabling those controls. The writable `ipc_doorbell_fb` DP
+  used by another Tuya doorbell path is absent from the tested ALPHA Hybrid.
 - Generate the private app profile from an authorized APK/session without
   requiring manual protocol inspection.
 - Confirm clean installation, restart, upgrade, and removal on another host.

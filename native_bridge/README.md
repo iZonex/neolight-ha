@@ -23,3 +23,16 @@ Observed behavior: the first Talk in a new P2P session used control type 6;
 outgoing G.711 packets used media type 6. Two-way speech was physically
 confirmed on one ALPHA Hybrid. Answering an incoming call and hanging it up
 from HA remain separate work.
+
+`observe_call_signaling.py` is a read-only diagnostic for the next ordinary
+call. Mount the HA integration's private config directory at `/state` and run
+it in a separate short-lived container using the native bridge image. It reuses
+HA's saved session without logging in, subscribes with a distinct MQTT client
+ID, and prints only protocol numbers, call event labels, and hashed call IDs.
+The tested ALPHA Hybrid does not advertise the SDK's writable
+`ipc_doorbell_fb` DP, so its `answered` / `refused` commands must not be used
+for this model. The APK's video call manager instead uses MQTT protocol 308;
+its exact call message ID and applicability to this analog adapter still need
+to be confirmed from a fresh call before answer or hangup controls are enabled.
+The HA integration also exposes read-only `Doorbell 1–4 ringing` diagnostic
+entities when the live schema advertises a Ring/Normal enum for those inputs.
