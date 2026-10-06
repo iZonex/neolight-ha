@@ -280,6 +280,13 @@ async def session_config() -> tuple[StreamConfig, MqttIdentity, str, str]:
         info = await client.request("smartlife.m.user.info.get", "1.0")
         device = await client.read_device(vendor["paired_device_id"])
         preferred_channel = vendor.get("preferred_video_channel", 0)
+        try:
+            active_route = json.loads((STATE / "video_route.json").read_text())
+            if (active_route.get("expires", 0) > time.time()
+                    and type(active_route.get("call_channel")) is int):
+                preferred_channel = active_route["call_channel"]
+        except (FileNotFoundError, ValueError, TypeError):
+            pass
         if type(preferred_channel) is int and preferred_channel > 0:
             try:
                 schema = device["schema"]

@@ -17,6 +17,9 @@
           "enable_lock_1": "Замок 1 и открытие двери",
           "enable_lock_2": "Замок 2 (сначала проверьте, что он открывает)",
           "preferred_video_channel": "Предпочтительный видеоканал (0 — оставить выбор устройства)",
+          "route_video_on_ring": "Переключать видео на канал вызова при звонке",
+          "call_video_channel": "Канал видео во время вызова (0 — выключено)",
+          "call_video_hold_seconds": "Держать канал вызова, секунд",
           "restream_url": "RTSP-адрес камеры",
           "homekit_ring_url": "URL сигнала звонка HomeKit",
           "stream_id": "UUID потока RTSP",
@@ -30,7 +33,8 @@
       "cannot_auth": "Не удалось войти или получить привязанное устройство",
       "invalid_stream_id": "Укажите корректный UUID потока",
       "invalid_stream_url": "Укажите RTSP-адрес",
-      "invalid_ring_url": "Укажите HTTP(S)-адрес"
+      "invalid_ring_url": "Укажите HTTP(S)-адрес",
+      "invalid_call_video_channel": "Выберите канал вызова для автоматического переключения"
     }
   },
   "config": {
@@ -51,6 +55,9 @@
           "enable_lock_1": "Замок 1 и открытие двери",
           "enable_lock_2": "Замок 2 (сначала проверьте, что он открывает)",
           "preferred_video_channel": "Предпочтительный видеоканал (0 — оставить выбор устройства)",
+          "route_video_on_ring": "Переключать видео на канал вызова при звонке",
+          "call_video_channel": "Канал видео во время вызова (0 — выключено)",
+          "call_video_hold_seconds": "Держать канал вызова, секунд",
           "restream_url": "RTSP-адрес камеры",
           "homekit_ring_url": "URL сигнала звонка HomeKit",
           "stream_id": "UUID потока RTSP",

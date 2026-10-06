@@ -14,6 +14,9 @@ bridge signs in with its own stable client identity, so HA session refreshes
 do not invalidate its media session. If `preferred_video_channel` is set to
 a nonzero channel in HA, the native bridge selects it when connecting, using
 the paired device's writable channel DP. The config file does not belong in Git.
+While HA has an active call route, the bridge uses its temporary channel on
+reconnection and leaves the idle preference untouched. HA restores the input
+selected before the call after the configured timeout.
 
 The publish URLs, talk port, go2rtc API URL, mux output stream, and runtime
 path can be changed with the `NEOLIGHT_*` environment variables in the two

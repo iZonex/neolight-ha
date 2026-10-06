@@ -51,6 +51,12 @@ is running on the same host and Home Assistant uses host networking. Set
 the monitor returns to a blank or different input after a media reconnect.
 `0` leaves the monitor's current selection alone. The tested ALPHA Hybrid
 uses channel `1` for DOOR; confirm the mapping on other installations.
+The **Video input** entity lets you select any input exposed by the monitor.
+For two physical video sources, set **Call video channel** to the input wired
+to the intercom, enable **Switch video to the call channel when ringing**, and
+set **Keep call video** to the desired timeout. A fresh ring selects the call
+input; after the timeout, HA restores the input that was active before the
+ring. The default is off because channel wiring varies by installation.
 
 ## 2. Start the media stack
 
@@ -101,7 +107,8 @@ HomeKit Bridge; its physical action from Apple Home remains unverified.
 - The cloud doorbell event is polled and may miss a call. A missed call cannot
   trigger the one-time release.
 - Incoming-call answer/hangup through HA is not implemented. Apple Home Live
-  talk is an on-demand media session.
+  talk is an on-demand media session. The automatic video input switch does
+  not answer or end the analog intercom call.
 - Other NeoLight models, firmware, and analog adapters need their own testing.
 
 For development details, see [architecture](ARCHITECTURE.md).

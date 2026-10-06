@@ -17,6 +17,9 @@
           "enable_lock_1": "Lock 1 and Door release",
           "enable_lock_2": "Lock 2 (verify physical target first)",
           "preferred_video_channel": "Preferred video channel (0 keeps the device selection)",
+          "route_video_on_ring": "Switch video to the call channel when ringing",
+          "call_video_channel": "Call video channel (0 disables switching)",
+          "call_video_hold_seconds": "Keep call video for this many seconds",
           "restream_url": "Camera RTSP URL",
           "homekit_ring_url": "HomeKit ring webhook URL",
           "stream_id": "RTSP stream UUID",
@@ -30,7 +33,8 @@
       "cannot_auth": "Cannot sign in or access the paired device",
       "invalid_stream_id": "Enter a valid stream UUID",
       "invalid_stream_url": "Enter an RTSP URL",
-      "invalid_ring_url": "Enter an HTTP(S) URL"
+      "invalid_ring_url": "Enter an HTTP(S) URL",
+      "invalid_call_video_channel": "Choose a call video channel to enable automatic switching"
     }
   },
   "config": {
@@ -51,6 +55,9 @@
           "enable_lock_1": "Lock 1 and Door release",
           "enable_lock_2": "Lock 2 (verify physical target first)",
           "preferred_video_channel": "Preferred video channel (0 keeps the device selection)",
+          "route_video_on_ring": "Switch video to the call channel when ringing",
+          "call_video_channel": "Call video channel (0 disables switching)",
+          "call_video_hold_seconds": "Keep call video for this many seconds",
           "restream_url": "Camera RTSP URL",
           "homekit_ring_url": "HomeKit ring webhook URL",
           "stream_id": "RTSP stream UUID",

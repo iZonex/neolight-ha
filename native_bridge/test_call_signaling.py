@@ -36,6 +36,17 @@ class CallSignalingTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             call_command("video_doorbell", "device", "", "stop")
 
+    def test_push_and_dp_metadata_omit_payload_values(self):
+        push = summarize_message({"protocol": 43, "data": {"etype": "ipc_doorbell",
+                                  "edata": "private-call-id", "devId": "private-device"}}, 90)
+        self.assertEqual(push["push_type"], "ipc_doorbell")
+        self.assertNotIn("private-", str(push))
+        dp = summarize_message({"protocol": 4, "data": {"dps": {
+            "185": "private-alarm", "239": "Ring", "240": "Normal"}}}, 80)
+        self.assertEqual(dp["dp_ids"], ["185", "239", "240"])
+        self.assertEqual(dp["ring_states"], {"239": "Ring", "240": "Normal"})
+        self.assertNotIn("private-alarm", str(dp))
+
 
 if __name__ == "__main__":
     unittest.main()

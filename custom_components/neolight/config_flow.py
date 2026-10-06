@@ -36,6 +36,11 @@ def account_schema(current: dict[str, Any]) -> vol.Schema:
         vol.Required("enable_lock_2", default=current.get("enable_lock_2", False)): bool,
         vol.Required("preferred_video_channel", default=current.get("preferred_video_channel", 0)):
             vol.All(vol.Coerce(int), vol.Range(min=0, max=32)),
+        vol.Required("route_video_on_ring", default=current.get("route_video_on_ring", False)): bool,
+        vol.Required("call_video_channel", default=current.get("call_video_channel", 0)):
+            vol.All(vol.Coerce(int), vol.Range(min=0, max=32)),
+        vol.Required("call_video_hold_seconds", default=current.get("call_video_hold_seconds", 90)):
+            vol.All(vol.Coerce(int), vol.Range(min=15, max=300)),
         vol.Optional("restream_url", default=current.get("restream_url", "")): str,
         vol.Optional("homekit_ring_url", default=current.get("homekit_ring_url", "")): str,
         vol.Optional("stream_id", default=current.get("stream_id", "")): str,
@@ -74,6 +79,9 @@ async def validate_account(hass, vendor: dict[str, Any], current: dict[str, Any]
         "enable_lock_1": user_input["enable_lock_1"],
         "enable_lock_2": user_input["enable_lock_2"],
         "preferred_video_channel": user_input["preferred_video_channel"],
+        "route_video_on_ring": user_input["route_video_on_ring"],
+        "call_video_channel": user_input["call_video_channel"],
+        "call_video_hold_seconds": user_input["call_video_hold_seconds"],
         "restream_url": user_input.get("restream_url", "").strip(),
         "homekit_ring_url": user_input.get("homekit_ring_url", "").strip(),
         "stream_id": user_input.get("stream_id", "").strip().lower(),
@@ -86,6 +94,8 @@ async def validate_account(hass, vendor: dict[str, Any], current: dict[str, Any]
         raise ValueError("invalid_stream_url")
     if options["homekit_ring_url"] and not options["homekit_ring_url"].startswith(("http://", "https://")):
         raise ValueError("invalid_ring_url")
+    if options["route_video_on_ring"] and not options["call_video_channel"]:
+        raise ValueError("invalid_call_video_channel")
     if "api_host" not in vendor:
         return options
     email = user_input["email"].strip()

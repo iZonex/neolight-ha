@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from hashlib import sha256
+import json
 import re
 from typing import Any
 
@@ -43,6 +44,24 @@ def summarize_message(message: Any, size: int) -> dict[str, Any]:
         "keys": sorted(key for key in nested if isinstance(key, str))[:24],
         "bytes": size,
     }
+    if result["protocol"] == 43:
+        result["push_type"] = _label(nested.get("etype"))
+        result["push_data_hash"] = _digest(nested.get("edata"))
+    if result["protocol"] == 4:
+        dps = nested.get("dps")
+        if isinstance(dps, str):
+            try:
+                dps = json.loads(dps)
+            except ValueError:
+                dps = None
+        if isinstance(dps, dict):
+            result["dp_ids"] = sorted(
+                key for key in dps if isinstance(key, str) and key.isdigit()
+            )[:24]
+            result["ring_states"] = {
+                key: dps[key] for key in ("239", "240", "247", "248")
+                if isinstance(dps.get(key), str) and dps[key] in {"Ring", "Normal"}
+            }
     return result
 
 
