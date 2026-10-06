@@ -53,7 +53,7 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
             model="ALPHA Hybrid",
             configuration_url=f"http://{host}/",
         )
-        initial_raw = (coordinator.data.dps or {}).get("185") if coordinator.data else None
+        initial_raw = (runtime.coordinator.data.dps or {}).get("185") if runtime.coordinator.data else None
         self._ring_deduplicator = RingDeduplicator(initial_raw)
         self._pending_unlock: asyncio.Task | None = None
         self._test_consumed = False
