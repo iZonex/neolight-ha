@@ -1,6 +1,7 @@
 """Doorbell events reported by the paired NeoLight monitor."""
 
 import asyncio
+from hashlib import sha256
 import logging
 import time
 
@@ -91,14 +92,18 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
         if episode is not None:
             _LOGGER.info("NeoLight fresh call episode %s detected from %s",
                          episode.number, episode.source)
-            self._trigger_event("ring")
+            details = {"source": episode.source, "episode": episode.number}
+            event = doorbell_event(raw) if fresh_snapshot else None
+            if event:
+                details["snapshot_captured_at"] = event[0]
+                details["alarm_hash"] = sha256(raw.encode()).hexdigest()[:12]
+            self._trigger_event("ring", details)
             if (self._entry.options.get("route_video_on_ring")
                     and self._entry.options.get("call_video_channel", 0) > 0):
                 selected = self._video_router.ring()
                 self.hass.async_create_task(self._notify_after_video_route(selected))
             else:
                 self.hass.async_create_task(self._notify_homekit_doorbell())
-            event = doorbell_event(raw) if fresh_snapshot else None
             captured_at = event[0] if event else int(time.time())
             mode = release_mode(
                 self._entry.options, captured_at, time.time(), AUTO_UNLOCK_SAFETY_HOLD

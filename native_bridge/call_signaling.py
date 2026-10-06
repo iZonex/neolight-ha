@@ -79,6 +79,7 @@ def summarize_message(message: Any, size: int) -> dict[str, Any]:
         result["push_data_hash"] = _digest(nested.get("edata"))
     if result["protocol"] == 4:
         dps = nested.get("dps")
+        result["dp_format"] = type(dps).__name__ if dps is not None else None
         if isinstance(dps, str):
             try:
                 dps = json.loads(dps)
@@ -92,6 +93,7 @@ def summarize_message(message: Any, size: int) -> dict[str, Any]:
                 key: dps[key] for key in ("239", "240", "247", "248")
                 if isinstance(dps.get(key), str) and dps[key] in {"Ring", "Normal"}
             }
+            result["alarm_hash"] = _digest(dps.get("185"))
     return result
 
 

@@ -44,8 +44,15 @@ class CallSignalingTests(unittest.TestCase):
         dp = summarize_message({"protocol": 4, "data": {"dps": {
             "185": "private-alarm", "239": "Ring", "240": "Normal"}}}, 80)
         self.assertEqual(dp["dp_ids"], ["185", "239", "240"])
+        self.assertEqual(dp["dp_format"], "dict")
+        self.assertEqual(len(dp["alarm_hash"]), 12)
         self.assertEqual(dp["ring_states"], {"239": "Ring", "240": "Normal"})
         self.assertNotIn("private-alarm", str(dp))
+
+    def test_protocol_4_unknown_dp_encoding_is_reported_without_value(self):
+        summary = summarize_message({"protocol": 4, "data": {"dps": "private-blob"}}, 80)
+        self.assertEqual(summary["dp_format"], "str")
+        self.assertNotIn("private-blob", str(summary))
 
     def test_incoming_call_requires_matching_device_and_supported_type(self):
         push = {"protocol": 43, "data": {"devId": "device", "etype": "video_doorbell",
