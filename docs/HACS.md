@@ -6,6 +6,10 @@ go2rtc, and optional Scrypted plugin are separate services; install them from
 the [full installation guide](INSTALL.md) when you need live audio, talkback,
 or Apple Home.
 
+[Open NeoLight directly in HACS](https://my.home-assistant.io/redirect/hacs_repository/?owner=iZonex&repository=neolight-ha&category=integration).
+This My Home Assistant link opens the repository in your own instance; HACS
+must already be installed. It does not install the integration automatically.
+
 1. Install and configure HACS in Home Assistant.
 2. In HACS, open the top-right menu → **Custom repositories**.
 3. Enter `https://github.com/iZonex/neolight-ha` and choose **Integration**.
