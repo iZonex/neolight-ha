@@ -16,6 +16,19 @@ PANEL_CODES = {
 }
 
 
+def channel_labels(raw: str) -> dict[int, str]:
+    """Name actual monitor channels; analog inputs within DOOR are not listed."""
+    data = json.loads(raw)
+    if not isinstance(data, dict) or not isinstance(data.get("chs"), list):
+        raise ValueError("Channel list is unavailable")
+    return {
+        item["id"]: str(item.get("n") or "Camera")
+        for item in data["chs"]
+        if isinstance(item, dict) and type(item.get("id")) is int
+        and 1 <= item["id"] <= 32
+    }
+
+
 @dataclass(frozen=True)
 class PanelProfile:
     """Map the observed panel controls to a paired device's runtime schema."""

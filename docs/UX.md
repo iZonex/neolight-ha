@@ -56,6 +56,14 @@ those stay as diagnostic entities for automation and troubleshooting. The
 owner can rename the entrance and both physical video sources. No unsupported
 control is shown as if it worked.
 
+On the tested installation, `DOOR` is monitor channel 1. The entrance camera
+and analog Vizit signal are two physical inputs within that channel; `CAM2`
+is monitor channel 2 and is not the second DOOR input. The current HA channel
+selector controls the monitor channel only. The guided source preview must
+model these as separate layers and must not label CAM2 as the intercom picture.
+Until the inner DOOR switching protocol is verified, keep both idle and call
+video on the known working DOOR channel.
+
 ## Call and video behavior
 
 | State | HA and Apple Home behavior |

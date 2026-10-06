@@ -56,11 +56,13 @@ the monitor returns to a blank or different input after a media reconnect.
 `0` leaves the monitor's current selection alone. The tested ALPHA Hybrid
 uses channel `1` for DOOR; confirm the mapping on other installations.
 The **Video input** entity lets you select any input exposed by the monitor.
-For two physical video sources, set **Call video channel** to the input wired
-to the intercom, enable **Switch video to the call channel when ringing**, and
-set **Keep call video** to the desired timeout. A fresh ring selects the call
-input; after the timeout, HA restores the input that was active before the
-ring. The default is off because channel wiring varies by installation.
+**Call video channel** refers to the monitor's channel list (`DOOR`, `CAM2`,
+etc.). On the tested installation, the entrance camera and Vizit video are
+two analog sources within `DOOR`; `CAM2` is a different monitor channel and
+does not select the second DOOR source. Keep both idle and call channel set to
+`DOOR` until the inner source selection is verified. A fresh ring selects the
+configured monitor channel; after the timeout, HA restores the channel that
+was active before the ring. The default is off because wiring varies.
 
 ## 2. Start the media stack
 

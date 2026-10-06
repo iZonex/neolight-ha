@@ -16,6 +16,7 @@ from .client import MonitorClient, MonitorUnavailable
 from .const import CONF_RTSP_PASSWORD, CONF_RTSP_USER, CONF_STREAM_ID, DOMAIN
 from .mobile_api import MobileApiClient, MobileApiError
 from .options_validation import STREAM_ID_PATTERN, validate_option_section
+from .panel_protocol import PanelProfile, channel_labels
 from .profile import ha_static_fields, parse_app_profile
 from .settings import load_vendor
 
@@ -170,6 +171,17 @@ class NeoLightOptionsFlow(config_entries.OptionsFlow):
 
     async def _async_section(self, step_id: str, user_input: dict[str, Any] | None):
         current = await self.hass.async_add_executor_job(load_vendor, self._entry)
+        if step_id == "entrances":
+            runtime = getattr(self.hass, "data", {}).get(DOMAIN, {}).get(self._entry.entry_id)
+            if runtime and runtime.coordinator.data:
+                state = runtime.coordinator.data
+                try:
+                    profile = PanelProfile.from_schema(state.schema, required=("channel",))
+                    current["_channel_labels"] = channel_labels(
+                        state.dps[str(profile.dp_ids["channel"])]
+                    )
+                except (KeyError, TypeError, ValueError):
+                    pass
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
@@ -222,15 +234,28 @@ class NeoLightOptionsFlow(config_entries.OptionsFlow):
 def option_section_schema(section: str, current: dict[str, Any]) -> vol.Schema:
     """Fields for one settings page, with persisted values as defaults."""
     if section == "entrances":
+        channel_names = current.get("_channel_labels")
+        if channel_names:
+            preferred_choices = {0: "0: Keep monitor selection"} | {
+                channel: f"{channel}: {name}" for channel, name in channel_names.items()
+            }
+            call_choices = {0: "0: Do not switch"} | {
+                channel: f"{channel}: {name}" for channel, name in channel_names.items()
+            }
+            preferred_validator = vol.In(preferred_choices)
+            call_validator = vol.In(call_choices)
+        else:
+            preferred_validator = vol.All(vol.Coerce(int), vol.Range(min=0, max=32))
+            call_validator = vol.All(vol.Coerce(int), vol.Range(min=0, max=32))
         return vol.Schema({
             vol.Required("enable_camera", default=current.get("enable_camera", True)): bool,
             vol.Required("enable_lock_1", default=current.get("enable_lock_1", True)): bool,
             vol.Required("enable_lock_2", default=current.get("enable_lock_2", False)): bool,
             vol.Required("preferred_video_channel", default=current.get("preferred_video_channel", 0)):
-                vol.All(vol.Coerce(int), vol.Range(min=0, max=32)),
+                preferred_validator,
             vol.Required("route_video_on_ring", default=current.get("route_video_on_ring", False)): bool,
             vol.Required("call_video_channel", default=current.get("call_video_channel", 0)):
-                vol.All(vol.Coerce(int), vol.Range(min=0, max=32)),
+                call_validator,
             vol.Required("call_video_hold_seconds", default=current.get("call_video_hold_seconds", 90)):
                 vol.All(vol.Coerce(int), vol.Range(min=15, max=300)),
         })

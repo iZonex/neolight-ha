@@ -22,7 +22,7 @@
           "enable_lock_2": "Lock 2 (verify physical target first)",
           "preferred_video_channel": "Preferred video channel (0 keeps the device selection)",
           "route_video_on_ring": "Switch video to the call channel when ringing",
-          "call_video_channel": "Call video channel (0 disables switching)",
+          "call_video_channel": "Monitor channel during a call (DOOR/CAM; 0 disables switching)",
           "call_video_hold_seconds": "Keep call video for this many seconds"
         }
       },
