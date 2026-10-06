@@ -61,7 +61,11 @@ async def observe(seconds: int) -> None:
             runtime = json.loads((STATE / "runtime_session.json").read_text())
             ecode = runtime["ecode"]
             msid = md5(md5(app_key) + ecode)[-16:]
-            topics = [f"smart/mb/in/{vendor['paired_device_id']}", f"/av/u/{msid}"]
+            topics = [
+                f"smart/mb/in/{vendor['paired_device_id']}",
+                f"/av/u/{msid}",
+                f"smart/mb/out/{vendor['paired_device_id']}",
+            ]
             username = (
                 f"{runtime['partnerIdentity']}_v1_{app_key}_{fields['chKey']}_mb_{runtime['sid']}"
                 f"{md5(md5(app_key) + ecode)[16:]}"
@@ -96,12 +100,15 @@ async def observe(seconds: int) -> None:
                         except Exception:
                             decoded = None
                     summary = summarize_message(decoded, len(payload))
+                    topic_index = next(
+                        (index for index, topic in enumerate(topics)
+                         if str(received.topic) == topic), -1
+                    )
+                    if topic_index == 2 and summary["protocol"] != 308:
+                        continue
                     print(json.dumps({
                         "observed_at": time.time(),
-                        "topic_index": next(
-                            (index for index, topic in enumerate(topics)
-                             if str(received.topic) == topic), -1
-                        ),
+                        "topic_index": topic_index,
                         **summary,
                     }), flush=True)
         except (aiomqtt.MqttError, OSError, TimeoutError) as error:
