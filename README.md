@@ -63,6 +63,7 @@ Read the [architecture and protocol notes](docs/ARCHITECTURE.md) for how the
 parts connect. Contributors adding another monitor or entrance panel should
 start with the [device research guide](docs/REVERSE_ENGINEERING.md) and
 [contributing notes](CONTRIBUTING.md). See the [roadmap](docs/ROADMAP.md),
+[UX and configuration design](docs/UX.md),
 [security policy](SECURITY.md), and [releases](https://github.com/iZonex/neolight-ha/releases).
 
 ## Relay safety
