@@ -12,7 +12,6 @@ from dataclasses import replace
 import hashlib
 import json
 import logging
-from pathlib import Path
 import ssl
 import sys
 import time
@@ -64,16 +63,12 @@ async def main(seconds: int = 600) -> None:
     context = ssl.create_default_context()
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
-    state = Path("/state")
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
         try:
-            config, identity, _ = await session_config()
+            config, identity, _, msid = await session_config()
             # A distinct client ID leaves the active P2P media session alone.
             identity = replace(identity, client_id=identity.client_id.replace("native_", "observe_"))
-            app_key = json.loads((state / "vendor_config.json").read_text())["static_fields"]["clientId"]
-            ecode = json.loads((state / "runtime_session.json").read_text())["ecode"]
-            msid = hashlib.md5((hashlib.md5(app_key.encode()).hexdigest() + ecode).encode()).hexdigest()[-16:]
             topics = [f"smart/mb/in/{config.device_id}", f"/av/u/{msid}"]
             async with aiomqtt.Client(
                 hostname=identity.host, port=identity.port, username=identity.username,

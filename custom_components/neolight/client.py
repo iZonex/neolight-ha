@@ -22,6 +22,7 @@ class MonitorState:
     online: bool
     cloud_online: bool = False
     dps: Mapping[str, Any] = field(default_factory=dict)
+    schema: list[Mapping[str, Any]] = field(default_factory=list)
 
 
 class MonitorClient:

@@ -53,7 +53,8 @@ is running on the same host and Home Assistant uses host networking.
 On the Docker host, clone this repository. Copy `.env.compose.example` to
 `.env` and set `NEOLIGHT_HA_CONFIG` to the absolute host path of Home
 Assistant's config directory. The integration must already have written
-`NEOLIGHT_HA_CONFIG/neolight/vendor_config.json` and `runtime_session.json`.
+`NEOLIGHT_HA_CONFIG/neolight/vendor_config.json`. The native bridge signs in
+with a separate installation identity, so HA and media do not share a SID.
 
 ```sh
 docker compose up -d --build go2rtc native avmux

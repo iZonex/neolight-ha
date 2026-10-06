@@ -1,7 +1,6 @@
 """UI configuration for a NeoLight monitor."""
 
 import ipaddress
-import json
 import re
 from typing import Any
 
@@ -17,35 +16,11 @@ from homeassistant.helpers.selector import TextSelector, TextSelectorConfig, Tex
 from .client import MonitorClient, MonitorUnavailable
 from .const import AUTO_UNLOCK_SAFETY_HOLD, CONF_RTSP_PASSWORD, CONF_RTSP_USER, CONF_STREAM_ID, DOMAIN
 from .mobile_api import MobileApiClient, MobileApiError
+from .profile import ha_static_fields, parse_app_profile
 from .settings import load_vendor
 
 
 STREAM_ID_PATTERN = re.compile(r"^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$")
-APP_PROFILE_KEYS = {"api_host", "signing_key", "static_fields", "paired_device_id"}
-STATIC_FIELD_KEYS = {"appVersion", "chKey", "clientId", "deviceId", "lang", "os", "ttid"}
-
-
-def parse_app_profile(raw: str) -> dict[str, Any]:
-    """Validate the per-app credentials without assuming one owner's APK values."""
-    try:
-        profile = json.loads(raw)
-    except (ValueError, TypeError) as error:
-        raise ValueError("invalid_profile") from error
-    if not isinstance(profile, dict) or not APP_PROFILE_KEYS <= profile.keys():
-        raise ValueError("invalid_profile")
-    if not all(isinstance(profile[key], str) and profile[key] for key in
-               ("api_host", "signing_key", "paired_device_id")):
-        raise ValueError("invalid_profile")
-    fields = profile["static_fields"]
-    if not isinstance(fields, dict) or not STATIC_FIELD_KEYS <= fields.keys():
-        raise ValueError("invalid_profile")
-    if not all(isinstance(fields[key], str) and fields[key] for key in STATIC_FIELD_KEYS):
-        raise ValueError("invalid_profile")
-    if "://" in profile["api_host"] or "/" in profile["api_host"]:
-        raise ValueError("invalid_profile")
-    return {key: profile[key] for key in APP_PROFILE_KEYS}
-
-
 def account_schema(current: dict[str, Any]) -> vol.Schema:
     """Show the account and door release settings in HA."""
     fields = {
@@ -114,13 +89,12 @@ async def validate_account(hass, vendor: dict[str, Any], current: dict[str, Any]
     if changed:
         client = MobileApiClient(
             async_get_clientsession(hass),
-            vendor["api_host"], vendor["static_fields"], vendor["signing_key"],
+            vendor["api_host"], ha_static_fields(vendor["static_fields"]), vendor["signing_key"],
             email=email, password=password, country_code=country_code,
         )
         await client.login()
         await client.read_device(vendor["paired_device_id"])
-        # Re-login in the runtime so its sidecar session file receives the
-        # ecode and partner identity along with the new SID.
+        # Re-login in the runtime after changing the account credentials.
         options["sid"] = ""
     return options
 
@@ -232,7 +206,7 @@ class NeoLightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vendor.update(email=email, password=password, country_code=country)
                     client = MobileApiClient(
                         async_get_clientsession(self.hass), vendor["api_host"],
-                        vendor["static_fields"], vendor["signing_key"],
+                        ha_static_fields(vendor["static_fields"]), vendor["signing_key"],
                         email=email, password=password, country_code=country,
                     )
                     login_result = await client.login()

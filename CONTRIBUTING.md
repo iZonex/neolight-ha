@@ -15,10 +15,11 @@ Do not post account credentials, app signing keys, session tokens, device
 identifiers, raw packet captures, camera images, or authenticated RTSP URLs in
 issues or pull requests. Redact logs before sharing them.
 
-Run Python tests in an environment with Home Assistant dependencies:
+Run the protocol and profile tests with Python, `aiohttp`, and `cryptography`:
 
 ```sh
-python -m pytest -q tests native_bridge/test_protocol.py
+python -m unittest discover -s tests -p 'test_*.py'
+PYTHONPATH=native_bridge python -m unittest discover -s native_bridge -p 'test_*.py'
 python -m compileall -q custom_components/neolight native_bridge
 ```
 

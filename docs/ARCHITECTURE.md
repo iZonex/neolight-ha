@@ -16,9 +16,12 @@ flowchart LR
 
 The HA integration reads the monitor's local web UI to report availability.
 With an app profile, it also reads the paired Tuya device schema and values
-through the NeoLight mobile API. It resolves the relay DP from the **live
-schema** before each button press, confirms the device is online and the DP
-is inactive, then sends one command. The cloud acknowledgement does not prove
+through the NeoLight mobile API. HA derives a stable client installation ID
+from that profile to avoid sharing the phone app's SID. The integration exposes
+only relay controls present and writable in the paired device's schema. It
+resolves the relay DP from the **live schema** before each button press,
+confirms the device is online and the DP is inactive, then sends one command.
+The cloud acknowledgement does not prove
 that the physical lock moved. On the tested Vizit adapter, Lock 1 opened the
 door during an active call. Lock 2's target is unknown.
 
@@ -29,7 +32,9 @@ that alone is insufficient for automatic release. Auto unlock remains held
 off in code. A future call receiver must establish a fresh call identifier
 and a bounded, single-use release window before this can be enabled.
 
-The native bridge uses `tuya-ipc-p2p-sdk` for its encrypted session. It
+The native bridge uses `tuya-ipc-p2p-sdk` for its encrypted session. It signs
+in with a stable installation identity separate from HA's API client, so a
+refresh of one SID does not invalidate the other. It
 publishes panel audio as PCMA/8000 and sends Apple Home microphone samples
 back as PCMU/8000 while talk is active. The local monitor RTSP MainStream is
 transcoded from H.265 to H.264. The mux combines that video with panel audio

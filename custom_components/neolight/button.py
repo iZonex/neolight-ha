@@ -25,10 +25,11 @@ async def async_setup_entry(
     """Add relay buttons when the app's DP transport is configured."""
     runtime = hass.data[DOMAIN][entry.entry_id]
     if runtime.mobile is not None:
+        profile = PanelProfile.from_schema(runtime.coordinator.data.schema)
         buttons = []
-        if entry.options.get("enable_lock_1", True):
+        if profile.supports("lock_1") and entry.options.get("enable_lock_1", True):
             buttons.append(NeoLightRelayButton(entry, runtime, "lock_1", "Lock 1"))
-        if entry.options.get("enable_lock_2", "vendor" not in entry.data):
+        if profile.supports("lock_2") and entry.options.get("enable_lock_2", False):
             buttons.append(NeoLightRelayButton(entry, runtime, "lock_2", "Lock 2"))
         async_add_entities(buttons)
 
@@ -64,7 +65,13 @@ class NeoLightRelayButton(ButtonEntity):
             if device.get("isOnline") is not True:
                 raise HomeAssistantError("NeoLight device is offline")
             schema = device.get("schema")
-            profile = PanelProfile.from_schema(json.loads(schema) if isinstance(schema, str) else schema)
+            try:
+                profile = PanelProfile.from_schema(
+                    json.loads(schema) if isinstance(schema, str) else schema,
+                    required=(self._control,),
+                )
+            except (ValueError, TypeError) as error:
+                raise HomeAssistantError(f"NeoLight relay schema changed: {error}") from error
             dp_id = str(profile.dp_ids[self._control])
             current = (device.get("dps") or {}).get(dp_id)
             if current is True:

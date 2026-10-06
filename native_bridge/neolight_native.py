@@ -27,6 +27,7 @@ from tuya_ipc_p2p_sdk.transport.kcp_segment import parse_segment
 from tuya_ipc_p2p_sdk.transport.relay_session import VIDEO_CONVERSATION
 
 from mobile_api import MobileApiClient
+from account_identity import native_static_fields
 from protocol import TALK_START_TYPE, audio_packet, control_packet
 
 LOGGER = logging.getLogger("neolight_native")
@@ -265,17 +266,20 @@ class NeoLightSession(StreamSession):
         relay._conversation(2).send(encrypt_record(self._config.p2p_session.aes_key, audio_packet(timestamp, pcmu)))
 
 
-async def session_config() -> tuple[StreamConfig, MqttIdentity, str]:
+async def session_config() -> tuple[StreamConfig, MqttIdentity, str, str]:
     vendor = json.loads((STATE / "vendor_config.json").read_text())
-    runtime = json.loads((STATE / "runtime_session.json").read_text())
+    fields = native_static_fields(vendor["static_fields"])
     async with aiohttp.ClientSession() as http:
-        client = MobileApiClient(http, vendor["api_host"], vendor["static_fields"],
-                                 vendor["signing_key"], sid=runtime["sid"])
+        client = MobileApiClient(
+            http, vendor["api_host"], fields, vendor["signing_key"],
+            email=vendor["email"], password=vendor["password"],
+            country_code=vendor.get("country_code", "380"),
+        )
+        runtime = await client.login()
         info = await client.request("smartlife.m.user.info.get", "1.0")
         device = await client.read_device(vendor["paired_device_id"])
         raw = await client.request("m.ipc.v4.rtc.config.get", "1.0", {"devId": vendor["paired_device_id"]})
     config = StreamConfig.from_json(raw, vendor["paired_device_id"], device["localKey"])
-    fields = vendor["static_fields"]
     ecode = runtime["ecode"]
     app_key = fields["clientId"]
     uid = info["id"]
@@ -286,7 +290,7 @@ async def session_config() -> tuple[StreamConfig, MqttIdentity, str]:
         username=f"{runtime['partnerIdentity']}_v1_{app_key}_{fields['chKey']}_mb_{runtime['sid']}{md5(md5(app_key) + ecode)[16:]}",
         password=md5(md5(vendor["signing_key"]) + ecode)[8:24],
     )
-    return config, identity, uid
+    return config, identity, uid, md5(md5(app_key) + ecode)[-16:]
 
 
 async def publish_process() -> tuple[asyncio.subprocess.Process, PipePump]:
@@ -366,7 +370,7 @@ async def handle_talk(reader: asyncio.StreamReader, writer: asyncio.StreamWriter
 
 
 async def run_once() -> None:
-    config, identity, uid = await session_config()
+    config, identity, uid, _ = await session_config()
     ffmpeg, audio = await publish_process()
     video_ffmpeg, video = await video_publish_process()
     session = NeoLightSession(config, identity, uid, video.write, audio.write)
