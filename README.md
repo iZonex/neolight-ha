@@ -11,7 +11,7 @@ bridge carries live video and two-way audio.
 
 > **Alpha:** tested with one ALPHA Hybrid and a Vizit analog adapter. Other
 > monitors, firmware, and wiring need separate verification. Automatic unlock
-> is disabled because the observed cloud ring signal can replay an old call.
+> is disabled while fresh-call and physical release checks are completed.
 
 ## Install
 
@@ -40,8 +40,8 @@ Apple Home. See [HACS installation details](docs/HACS.md) or the
 | Door camera in Home Assistant | Available with a configured RTSP stream; live audio uses the optional media stack |
 | Door release | Home Assistant Lock 1 physically opened the tested Vizit entrance during an active call |
 | Apple Home doorbell | Live video and speech in both directions worked in the tested installation through Scrypted |
-| Ring event | Experimental cloud event; it may be stale or missed |
-| Automatic unlock | Disabled until a fresh, replay-safe call signal is verified |
+| Ring event | Experimental cloud event; the tested alarm contains a snapshot timestamp, but polling may miss a call |
+| Automatic unlock | Disabled until call lifecycle and physical release are verified |
 | Apple Home release | Paired, but the physical relay action has not yet been verified |
 | Incoming-call answer/hangup in HA | Not implemented; Apple Home Live talk starts an on-demand media session |
 

@@ -25,12 +25,14 @@ The cloud acknowledgement does not prove
 that the physical lock moved. On the tested Vizit adapter, Lock 1 opened the
 door during an active call. Lock 2's target is unknown.
 
-The current ring event uses the cloud `alarm_message` DP. It has no trustworthy
-event timestamp and an old value was replayed after reconnecting. A
-deduplicator suppresses values already seen by the running HA process, but
-that alone is insufficient for automatic release. Auto unlock remains held
-off in code. A future call receiver must establish a fresh call identifier
-and a bounded, single-use release window before this can be enabled.
+The ring event uses the cloud `alarm_message` DP. One captured Vizit call
+contained a snapshot filename with a Unix timestamp one second before the
+observed MQTT update. The event parser requires that timestamp to be recent,
+newer than the current HA runtime, and attached to a snapshot path it has not
+seen. This rejects the stale value previously replayed after reconnecting.
+The cloud DP is still polled and can miss a call. Auto unlock remains held off
+until call lifecycle, one-command-per-call behavior, and physical release are
+verified together.
 
 The native bridge uses `tuya-ipc-p2p-sdk` for its encrypted session. It signs
 in with a stable installation identity separate from HA's API client, so a

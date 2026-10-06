@@ -8,10 +8,10 @@
 
 ## Before enabling automatic unlock
 
-1. Capture the Vizit call start and end signal independently of the stale
-   cloud `alarm_message` value.
-2. Confirm a unique call identifier or another signal with equivalent replay
-   protection.
+1. Capture the Vizit call end and answer signals. One fresh start was captured
+   in MQTT and in cloud `alarm_message` with a matching snapshot timestamp.
+2. Verify that the timestamped snapshot path stays unique across several
+   calls, reconnects, and HA restarts.
 3. Test one command per fresh call, expiry, reconnect, and restart behavior.
 4. Physically verify the final auto-release once with the owner present.
 
