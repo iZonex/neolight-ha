@@ -17,7 +17,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import AUTO_UNLOCK_SAFETY_HOLD, DOMAIN
 from .call_control import CallControlError, reset_call
-from .call_state import started_new_call
+from .call_state import RingEpisodeDetector
 from .release_policy import release_mode
 from .ring_message import RingDeduplicator, doorbell_event
 from .settings import runtime_directory
@@ -57,9 +57,10 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
         )
         initial_raw = (runtime.coordinator.data.dps or {}).get("185") if runtime.coordinator.data else None
         self._ring_deduplicator = RingDeduplicator(initial_raw)
-        self._last_call_status = runtime.coordinator.data.call_status if runtime.coordinator.data else None
-        self._last_trigger = 0.0
-        self._active_call_triggered = False
+        self._episodes = RingEpisodeDetector(
+            runtime.coordinator.data.call_status if runtime.coordinator.data else None,
+            time.monotonic(),
+        )
         self._pending_unlock: asyncio.Task | None = None
         self._test_consumed = False
         self._video_router = VideoRouter(
@@ -84,17 +85,12 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
                          "auto_unlock_test_deadline": 0},
             )
         fresh_snapshot = self._ring_deduplicator.observe(raw)
-        call_status = state.call_status if state else None
-        fresh_call = started_new_call(self._last_call_status, call_status)
-        if call_status is not None:
-            self._last_call_status = call_status
-            if call_status != 0:
-                self._active_call_triggered = False
-        if fresh_call or (fresh_snapshot and not self._active_call_triggered
-                          and time.monotonic() - self._last_trigger > 30):
-            self._last_trigger = time.monotonic()
-            if call_status == 0:
-                self._active_call_triggered = True
+        episode = self._episodes.observe(
+            fresh_snapshot, state.call_status if state else None, time.monotonic()
+        )
+        if episode is not None:
+            _LOGGER.info("NeoLight fresh call episode %s detected from %s",
+                         episode.number, episode.source)
             self._trigger_event("ring")
             if (self._entry.options.get("route_video_on_ring")
                     and self._entry.options.get("call_video_channel", 0) > 0):

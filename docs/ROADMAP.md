@@ -21,6 +21,12 @@ command acknowledged by the account API, and the owner confirmed that the
 entrance opened. Persistent mode is available but off by default; missed rings
 and other wiring modes still need testing.
 
+The ring detector now merges snapshot and call-status reports into one call
+episode, including delayed status updates and active calls across an HA restart.
+The ordering is covered by offline tests and installed on the owner's HA.
+A real multi-call trace is still needed to establish the shortest safe interval
+between separate calls and to measure missed calls.
+
 ## Before a stable release
 
 - Verify Apple Home release physically and expose clear command failures.
