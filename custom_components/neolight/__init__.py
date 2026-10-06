@@ -62,8 +62,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     client = MonitorClient(session, entry.data["host"])
     vendor = await hass.async_add_executor_job(load_vendor, entry)
     state_dir = runtime_directory(hass, entry)
-    if "vendor" in entry.data:
+    if vendor:
         await hass.async_add_executor_job(write_private_json, state_dir / "vendor_config.json", vendor)
+    if "vendor" in entry.data:
         if entry.data.get("initial_session") and not (state_dir / "runtime_session.json").exists():
             await hass.async_add_executor_job(
                 write_private_json, state_dir / "runtime_session.json", entry.data["initial_session"]

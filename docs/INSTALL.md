@@ -46,7 +46,11 @@ In the integration's **Configure** form, select which entities to expose.
 Lock 2 is off by default because its physical destination has not been
 verified. Configure the camera RTSP URL as
 `rtsp://127.0.0.1:8556/neolight_door_with_audio` when the media stack below
-is running on the same host and Home Assistant uses host networking.
+is running on the same host and Home Assistant uses host networking. Set
+**Preferred video channel** to the channel carrying the entrance camera if
+the monitor returns to a blank or different input after a media reconnect.
+`0` leaves the monitor's current selection alone. The tested ALPHA Hybrid
+uses channel `1` for DOOR; confirm the mapping on other installations.
 
 ## 2. Start the media stack
 
