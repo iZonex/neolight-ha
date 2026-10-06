@@ -12,8 +12,10 @@
    in MQTT and in cloud `alarm_message` with a matching snapshot timestamp.
 2. Verify that the timestamped snapshot path stays unique across several
    calls, reconnects, and HA restarts.
-3. Test one command per fresh call, expiry, reconnect, and restart behavior.
-4. Physically verify the final auto-release once with the owner present.
+3. Test one command per fresh call and expiry; check reconnect and restart
+   behavior with the time-bounded one-time release.
+4. Physically verify the final auto-release once with the owner present before
+   removing the persistent-release hold.
 
 ## Before a stable release
 

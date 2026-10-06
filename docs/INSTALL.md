@@ -92,11 +92,13 @@ HomeKit Bridge; its physical action from Apple Home remains unverified.
 
 ## Known limits
 
-- Auto unlock is disabled in code until the call lifecycle and physical
-  release are verified together.
-  The unavailable switch from older alpha versions is removed on setup.
-- The current cloud doorbell event is polled and may miss a call. It must not
-  drive an unlocking automation.
+- Persistent auto unlock is held in code until a fresh call opens the physical
+  door in a supervised test. In the integration options, **Unlock once on the
+  next ring** arms a single Lock 1 release for five minutes. It accepts only a
+  new timestamped call seen within ten seconds of the snapshot and disarms
+  after the attempt or expiry. Check the HA log for the command result.
+- The cloud doorbell event is polled and may miss a call. A missed call cannot
+  trigger the one-time release.
 - Incoming-call answer/hangup through HA is not implemented. Apple Home Live
   talk is an on-demand media session.
 - Other NeoLight models, firmware, and analog adapters need their own testing.

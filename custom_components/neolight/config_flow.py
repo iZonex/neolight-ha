@@ -2,6 +2,7 @@
 
 import ipaddress
 import re
+import time
 from typing import Any
 
 from aiohttp import ClientError
@@ -28,6 +29,7 @@ def account_schema(current: dict[str, Any]) -> vol.Schema:
             vol.In({"lock_1": "Lock 1", "lock_2": "Lock 2"}),
         vol.Required("auto_unlock_delay", default=current.get("auto_unlock_delay", 0)):
             vol.All(vol.Coerce(int), vol.Range(min=0, max=30)),
+        vol.Required("auto_unlock_test_once", default=False): bool,
         vol.Required("enable_camera", default=current.get("enable_camera", True)): bool,
         vol.Required("enable_doorbell", default=current.get("enable_doorbell", True)): bool,
         vol.Required("enable_lock_1", default=current.get("enable_lock_1", True)): bool,
@@ -57,8 +59,14 @@ def account_schema(current: dict[str, Any]) -> vol.Schema:
 
 async def validate_account(hass, vendor: dict[str, Any], current: dict[str, Any], user_input: dict[str, Any]):
     """Return updated options after checking new credentials if they changed."""
+    test_once = user_input["auto_unlock_test_once"]
     options = {
-        "auto_unlock_on_ring": user_input.get("auto_unlock_on_ring", False) and not AUTO_UNLOCK_SAFETY_HOLD,
+        "auto_unlock_on_ring": (
+            user_input.get("auto_unlock_on_ring", False)
+            and not AUTO_UNLOCK_SAFETY_HOLD and not test_once
+        ),
+        "auto_unlock_test_once": test_once,
+        "auto_unlock_test_deadline": int(time.time()) + 300 if test_once else 0,
         "auto_unlock_relay": user_input["auto_unlock_relay"],
         "auto_unlock_delay": user_input["auto_unlock_delay"],
         "enable_camera": user_input["enable_camera"],
@@ -241,6 +249,7 @@ class NeoLightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         "preferred_video_channel": 0,
                         "homekit_ring_url": "",
                         "auto_unlock_on_ring": False,
+                        "auto_unlock_test_once": False,
                     },
                 )
         schema = vol.Schema({

@@ -2,13 +2,13 @@
 
 import asyncio
 import logging
+import time
 
 import aiohttp
 
 from homeassistant.components.event import EventDeviceClass, EventEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -16,7 +16,8 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import AUTO_UNLOCK_SAFETY_HOLD, DOMAIN
-from .ring_message import RingDeduplicator
+from .release_policy import release_mode
+from .ring_message import RingDeduplicator, doorbell_event
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,16 +54,33 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
         initial_raw = (coordinator.data.dps or {}).get("185") if coordinator.data else None
         self._ring_deduplicator = RingDeduplicator(initial_raw)
         self._pending_unlock: asyncio.Task | None = None
+        self._test_consumed = False
 
     def _handle_coordinator_update(self) -> None:
         state = self.coordinator.data
         raw = state.dps.get("185") if state else None
+        deadline = self._entry.options.get("auto_unlock_test_deadline", 0)
+        if (self._entry.options.get("auto_unlock_test_once")
+                and (not isinstance(deadline, (int, float)) or time.time() > deadline)):
+            self.hass.config_entries.async_update_entry(
+                self._entry,
+                options={**self._entry.options, "auto_unlock_test_once": False,
+                         "auto_unlock_test_deadline": 0},
+            )
         if self._ring_deduplicator.observe(raw):
             self._trigger_event("ring")
             self.hass.async_create_task(self._notify_homekit_doorbell())
-            if not AUTO_UNLOCK_SAFETY_HOLD and self._entry.options.get("auto_unlock_on_ring", False):
-                if self._pending_unlock is None or self._pending_unlock.done():
-                    self._pending_unlock = self.hass.async_create_task(self._auto_unlock())
+            event = doorbell_event(raw)
+            mode = release_mode(
+                self._entry.options, event[0], time.time(), AUTO_UNLOCK_SAFETY_HOLD
+            ) if event else None
+            if mode and (self._pending_unlock is None or self._pending_unlock.done()):
+                if mode != "once" or not self._test_consumed:
+                    self._test_consumed = mode == "once"
+                    _LOGGER.info("NeoLight auto unlock requested for fresh ring (%s)", mode)
+                    self._pending_unlock = self.hass.async_create_task(
+                        self._auto_unlock(event[0], mode)
+                    )
         super()._handle_coordinator_update()
 
     async def _notify_homekit_doorbell(self) -> None:
@@ -82,28 +100,37 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
         except (aiohttp.ClientError, OSError, asyncio.TimeoutError) as error:
             _LOGGER.debug("NeoLight HomeKit doorbell relay unavailable: %s", error)
 
-    async def _auto_unlock(self) -> None:
+    async def _auto_unlock(self, captured_at: int, mode: str) -> None:
         """Use the same validated relay button as a manual HA press."""
-        # Give the monitor time to establish the panel call channel.
-        delay = self._entry.options.get("auto_unlock_delay", 0)
-        await asyncio.sleep(delay)
-        if not self._entry.options.get("auto_unlock_on_ring", True):
-            return
-        relay = self._entry.options.get("auto_unlock_relay", "lock_1")
-        if relay not in {"lock_1", "lock_2"}:
-            _LOGGER.error("NeoLight auto unlock relay is invalid")
-            return
-        registry = entity_registry.async_get(self.hass)
-        button_id = registry.async_get_entity_id(
-            "button", DOMAIN, f"{self._entry.data['host']}_{relay}"
-        )
-        if not button_id:
-            _LOGGER.error("NeoLight auto unlock button is missing")
-            return
         try:
+            await asyncio.sleep(self._entry.options.get("auto_unlock_delay", 0))
+            if release_mode(
+                self._entry.options, captured_at, time.time(), AUTO_UNLOCK_SAFETY_HOLD
+            ) != mode:
+                _LOGGER.warning("NeoLight auto unlock skipped: ring or arming expired")
+                return
+            relay = self._entry.options.get("auto_unlock_relay", "lock_1")
+            if relay not in {"lock_1", "lock_2"} or (mode == "once" and relay != "lock_1"):
+                _LOGGER.error("NeoLight auto unlock relay is invalid")
+                return
+            registry = entity_registry.async_get(self.hass)
+            unique_id = f"{self._entry.data['host']}_{relay}"
+            button_id = next((entity.entity_id for entity in registry.entities.values()
+                              if entity.domain == "button" and entity.platform == DOMAIN
+                              and entity.unique_id == unique_id), None)
+            if not button_id:
+                _LOGGER.error("NeoLight auto unlock button is missing")
+                return
             await self.hass.services.async_call(
                 "button", "press", {"entity_id": button_id}, blocking=True
             )
-            _LOGGER.info("NeoLight auto unlock sent to %s", relay)
-        except HomeAssistantError as error:
-            _LOGGER.error("NeoLight auto unlock failed: %s", error)
+            _LOGGER.info("NeoLight auto unlock command acknowledged for %s", relay)
+        except Exception:
+            _LOGGER.exception("NeoLight auto unlock failed")
+        finally:
+            if mode == "once":
+                self.hass.config_entries.async_update_entry(
+                    self._entry,
+                    options={**self._entry.options, "auto_unlock_test_once": False,
+                             "auto_unlock_test_deadline": 0},
+                )
