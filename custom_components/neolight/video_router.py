@@ -35,10 +35,12 @@ class VideoRouter:
         self._hold_seconds = hold_seconds
         self._deadline = 0.0
         self._task: asyncio.Task | None = None
+        self._selected = asyncio.Event()
 
-    def ring(self) -> None:
+    def ring(self) -> asyncio.Event:
         self._deadline = time.time() + self._hold_seconds
         if self._task is None or self._task.done():
+            self._selected.clear()
             self._task = asyncio.create_task(self._route())
         elif self._state_path.exists():
             try:
@@ -47,6 +49,7 @@ class VideoRouter:
                 write_private_json(self._state_path, state)
             except (ValueError, OSError):
                 _LOGGER.warning("NeoLight call video deadline could not be extended")
+        return self._selected
 
     def resume(self) -> None:
         """Restore a call route after a Home Assistant reload or restart."""
@@ -62,6 +65,7 @@ class VideoRouter:
         except (FileNotFoundError, ValueError, KeyError, TypeError):
             return
         self._deadline = deadline
+        self._selected.set()
         self._task = asyncio.create_task(self._finish(target, previous))
 
     async def _device(self):
@@ -96,11 +100,14 @@ class VideoRouter:
                 self._runtime.vendor["paired_device_id"], command
             )
             _LOGGER.info("NeoLight video routed to call channel %s", self._call_channel)
+            self._selected.set()
             await self._finish(self._call_channel, previous)
         except Exception:
             _LOGGER.exception("NeoLight call video routing failed")
             if self._state_path.exists() and previous is not None:
                 await self._finish(self._call_channel, previous)
+        finally:
+            self._selected.set()
 
     async def _finish(self, target: int, previous: int) -> None:
         try:

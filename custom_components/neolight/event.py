@@ -82,8 +82,10 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
             self._trigger_event("ring")
             if (self._entry.options.get("route_video_on_ring")
                     and self._entry.options.get("call_video_channel", 0) > 0):
-                self._video_router.ring()
-            self.hass.async_create_task(self._notify_homekit_doorbell())
+                selected = self._video_router.ring()
+                self.hass.async_create_task(self._notify_after_video_route(selected))
+            else:
+                self.hass.async_create_task(self._notify_homekit_doorbell())
             event = doorbell_event(raw)
             mode = release_mode(
                 self._entry.options, event[0], time.time(), AUTO_UNLOCK_SAFETY_HOLD
@@ -96,6 +98,15 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
                         self._auto_unlock(event[0], mode)
                     )
         super()._handle_coordinator_update()
+
+    async def _notify_after_video_route(self, selected: asyncio.Event) -> None:
+        """Give the video input time to change before HomeKit requests a preview."""
+        try:
+            await asyncio.wait_for(selected.wait(), timeout=8)
+        except asyncio.TimeoutError:
+            pass
+        await asyncio.sleep(1)
+        await self._notify_homekit_doorbell()
 
     async def _notify_homekit_doorbell(self) -> None:
         """Pulse the Scrypted HomeKit doorbell on the same Docker host."""
