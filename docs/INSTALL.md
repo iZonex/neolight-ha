@@ -42,9 +42,13 @@ login and that the selected monitor belongs to the account. Runtime files are
 written under `/config/neolight` with restricted permissions. Do not commit
 that directory.
 
-In the integration's **Configure** form, select which entities to expose.
-Lock 2 is off by default because its physical destination has not been
-verified. Configure the camera RTSP URL as
+In the integration's **Configure** menu, use **Entrances and video** to choose
+the camera and relay entities, **Calls** for the doorbell event,
+**Automatic opening** for the relay rule and one-time test,
+**Apple Home** for its ring webhook, and **NeoLight account** to update the
+login. Manual RTSP details are under **Advanced media**. Saving one page
+preserves the other pages' settings. Lock 2 is off by default because its
+physical destination has not been verified. Configure the camera RTSP URL as
 `rtsp://127.0.0.1:8556/neolight_door_with_audio` when the media stack below
 is running on the same host and Home Assistant uses host networking. Set
 **Preferred video channel** to the channel carrying the entrance camera if
