@@ -106,9 +106,11 @@ HomeKit Bridge; its physical action from Apple Home remains unverified.
   physical door before enabling the persistent switch.
 - The cloud doorbell event is polled and may miss a call. A missed call cannot
   trigger the one-time release.
-- Incoming-call answer/hangup through HA is not implemented. Apple Home Live
-  talk is an on-demand media session. The automatic video input switch does
-  not answer or end the analog intercom call.
+- Apple Home Talk sends a Tuya call `accept` for a recent, supported video
+  call and `stop` when Talk ends. The live ALPHA Hybrid / Vizit call type and
+  physical answer/hangup behavior still require a call test. An ordinary
+  `doorbell` call type is unsupported by this Tuya command. Live viewing by
+  itself does not answer the call.
 - Other NeoLight models, firmware, and analog adapters need their own testing.
 
 For development details, see [architecture](ARCHITECTURE.md).

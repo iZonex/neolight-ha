@@ -24,8 +24,10 @@ Python modules. Keep the talk socket and go2rtc API on loopback.
 
 Observed behavior: the first Talk in a new P2P session used control type 6;
 outgoing G.711 packets used media type 6. Two-way speech was physically
-confirmed on one ALPHA Hybrid. Answering an incoming call and hanging it up
-from HA remain separate work.
+confirmed on one ALPHA Hybrid. The bridge now captures fresh MQTT protocol 43
+calls addressed to the paired device. For a call type supported by the APK's
+video-call manager, Apple Home Talk sends protocol 308 `accept` and Talk end
+sends `stop`. These call controls are not yet physically confirmed on Vizit.
 
 `observe_call_signaling.py` is a read-only diagnostic for the next ordinary
 call. Mount the HA integration's private config directory at `/state` and run
@@ -34,8 +36,9 @@ HA's saved session without logging in, subscribes with a distinct MQTT client
 ID, and prints only protocol numbers, call event labels, and hashed call IDs.
 The tested ALPHA Hybrid does not advertise the SDK's writable
 `ipc_doorbell_fb` DP, so its `answered` / `refused` commands must not be used
-for this model. The APK's video call manager instead uses MQTT protocol 308;
-its exact call message ID and applicability to this analog adapter still need
-to be confirmed from a fresh call before answer or hangup controls are enabled.
+for this model. The APK's video call manager instead uses MQTT protocol 308.
+The bridge takes the live message ID from protocol 43 and issues 308 only when
+the user starts Talk during that call. It skips the SDK's unsupported
+`doorbell` call type. Applicability to this analog adapter needs a call test.
 The HA integration also exposes read-only `Doorbell 1–4 ringing` diagnostic
 entities when the live schema advertises a Ring/Normal enum for those inputs.
