@@ -66,7 +66,7 @@ async def validate_account(hass, vendor: dict[str, Any], current: dict[str, Any]
             and not AUTO_UNLOCK_SAFETY_HOLD and not test_once
         ),
         "auto_unlock_test_once": test_once,
-        "auto_unlock_test_deadline": int(time.time()) + 300 if test_once else 0,
+        "auto_unlock_test_deadline": int(time.time()) + 900 if test_once else 0,
         "auto_unlock_relay": user_input["auto_unlock_relay"],
         "auto_unlock_delay": user_input["auto_unlock_delay"],
         "enable_camera": user_input["enable_camera"],

@@ -94,7 +94,7 @@ HomeKit Bridge; its physical action from Apple Home remains unverified.
 
 - Persistent auto unlock is held in code until a fresh call opens the physical
   door in a supervised test. In the integration options, **Unlock once on the
-  next ring** arms a single Lock 1 release for five minutes. It accepts only a
+  next ring** arms a single Lock 1 release for fifteen minutes. It accepts only a
   new timestamped call seen within ten seconds of the snapshot and disarms
   after the attempt or expiry. Check the HA log for the command result.
 - The cloud doorbell event is polled and may miss a call. A missed call cannot
