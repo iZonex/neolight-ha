@@ -62,7 +62,7 @@ class NeoLightAutoUnlockSwitch(SwitchEntity):
     async def async_turn_on(self, **kwargs) -> None:
         """Enable automatic opening for the next ring."""
         if AUTO_UNLOCK_SAFETY_HOLD:
-            raise HomeAssistantError("NeoLight auto unlock is paused while false ring events are investigated")
+            raise HomeAssistantError("NeoLight auto unlock is paused by the integration safety hold")
         self.hass.config_entries.async_update_entry(
             self._entry, options={**self._entry.options, "auto_unlock_on_ring": True}
         )

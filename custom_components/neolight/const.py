@@ -8,5 +8,5 @@ CONF_STREAM_ID = "stream_id"
 CONF_RTSP_USER = "rtsp_user"
 CONF_RTSP_PASSWORD = "rtsp_password"
 POLL_INTERVAL = timedelta(seconds=5)
-# Keep persistent release off until one timestamped call opens the physical door.
-AUTO_UNLOCK_SAFETY_HOLD = True
+# A supervised fresh Vizit call physically opened Lock 1 on 2026-10-06.
+AUTO_UNLOCK_SAFETY_HOLD = False

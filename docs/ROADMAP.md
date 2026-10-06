@@ -6,7 +6,7 @@
 - Apple Home Live showed the entrance and carried speech both ways.
 - The local RTSP mux delivered H.264 video and PCMA audio to two clients.
 
-## Before enabling automatic unlock
+## Automatic unlock validation
 
 1. Capture the Vizit call end and answer signals. One fresh start was captured
    in MQTT and in cloud `alarm_message` with a matching snapshot timestamp.
@@ -14,8 +14,12 @@
    calls, reconnects, and HA restarts.
 3. Test one command per fresh call and expiry; check reconnect and restart
    behavior with the time-bounded one-time release.
-4. Physically verify the final auto-release once with the owner present before
-   removing the persistent-release hold.
+4. Physically verify the final auto-release once with the owner present.
+
+Step 4 succeeded on 2026-10-06: a single fresh Vizit ring led to one Lock 1
+command acknowledged by the account API, and the owner confirmed that the
+entrance opened. Persistent mode is available but off by default; missed rings
+and other wiring modes still need testing.
 
 ## Before a stable release
 

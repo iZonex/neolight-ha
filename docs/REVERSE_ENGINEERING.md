@@ -63,11 +63,12 @@ For the tested device, the runtime schema maps `accessory_lock` to Lock 1,
 `ipc_c_lock` to Lock 2, and `ipc_c_switch_channel` to channel selection.
 `PanelProfile.from_schema` checks their type and writability before use. The
 numeric DP IDs are learned from the paired device; they are not universal.
-The observed `alarm_message` DP carried `ipc_doorbell` during one fresh Vizit
+The observed `alarm_message` DP carried `ipc_doorbell` during a fresh Vizit
 call. Its snapshot filename contained a matching Unix timestamp. The parser
-uses that time and the filename to reject stale and repeated alarms. It is
-still a polled signal, and the complete call lifecycle and auto release are
-not yet verified. Auto unlock remains held off in code.
+uses that time and the filename to reject stale and repeated alarms. A later
+supervised one-time auto release physically opened the Vizit entrance. The
+signal is still polled, so calls may be missed, and the complete call lifecycle
+is not yet verified. Persistent auto unlock is off by default.
 
 For another model, add a model or capability profile only after comparing its
 live schema and behavior. Do not change the existing mapping globally based

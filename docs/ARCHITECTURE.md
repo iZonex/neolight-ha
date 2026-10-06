@@ -30,9 +30,11 @@ contained a snapshot filename with a Unix timestamp one second before the
 observed MQTT update. The event parser requires that timestamp to be recent,
 newer than the current HA runtime, and attached to a snapshot path it has not
 seen. This rejects the stale value previously replayed after reconnecting.
-The cloud DP is still polled and can miss a call. Auto unlock remains held off
-until call lifecycle, one-command-per-call behavior, and physical release are
-verified together.
+The cloud DP is still polled and can miss a call. A supervised Vizit call
+physically opened Lock 1 after one timestamped event and one cloud command.
+Automatic unlock is off by default and requires the HA switch. Each command
+requires a ring captured within ten seconds; the one-time test expires after
+fifteen minutes and disarms after its first attempt.
 
 The native bridge uses `tuya-ipc-p2p-sdk` for its encrypted session. It signs
 in with a stable installation identity separate from HA's API client, so a

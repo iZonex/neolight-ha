@@ -11,7 +11,7 @@ bridge carries live video and two-way audio.
 
 > **Alpha:** tested with one ALPHA Hybrid and a Vizit analog adapter. Other
 > monitors, firmware, and wiring need separate verification. Automatic unlock
-> is disabled while fresh-call and physical release checks are completed.
+> is off by default and should be enabled only after a supervised physical test.
 
 ## Install
 
@@ -41,7 +41,7 @@ Apple Home. See [HACS installation details](docs/HACS.md) or the
 | Door release | Home Assistant Lock 1 physically opened the tested Vizit entrance during an active call |
 | Apple Home doorbell | Live video and speech in both directions worked in the tested installation through Scrypted |
 | Ring event | Experimental cloud event; the tested alarm contains a snapshot timestamp, but polling may miss a call |
-| Automatic unlock | One-time supervised test available in options; persistent mode held until physical verification |
+| Automatic unlock | Configurable in HA; one supervised Vizit call physically opened Lock 1 |
 | Apple Home release | Paired, but the physical relay action has not yet been verified |
 | Incoming-call answer/hangup in HA | Not implemented; Apple Home Live talk starts an on-demand media session |
 
