@@ -2,7 +2,7 @@
 
 import unittest
 
-from call_signaling import call_command, summarize_message
+from call_signaling import call_command, incoming_call, summarize_message
 
 
 class CallSignalingTests(unittest.TestCase):
@@ -46,6 +46,19 @@ class CallSignalingTests(unittest.TestCase):
         self.assertEqual(dp["dp_ids"], ["185", "239", "240"])
         self.assertEqual(dp["ring_states"], {"239": "Ring", "240": "Normal"})
         self.assertNotIn("private-alarm", str(dp))
+
+    def test_incoming_call_requires_matching_device_and_supported_type(self):
+        push = {"protocol": 43, "data": {"devId": "device", "etype": "video_doorbell",
+                                          "edata": "message", "cid": "channel"}}
+        call = incoming_call(push, "device")
+        self.assertEqual(call_command(call.call_type, call.device_id,
+                                      call.message_id, "accept", call.channel_id),
+                         {"type": "video_doorbell", "data": {
+                             "devId": "device", "event": "accept", "eData": "message",
+                             "cid": "channel"}})
+        self.assertIsNone(incoming_call(push, "other-device"))
+        self.assertIsNone(incoming_call({"protocol": 43, "data": {
+            **push["data"], "etype": "doorbell"}}, "device"))
 
 
 if __name__ == "__main__":

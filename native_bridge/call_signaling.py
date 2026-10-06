@@ -5,10 +5,40 @@ from __future__ import annotations
 from hashlib import sha256
 import json
 import re
+from dataclasses import dataclass
 from typing import Any
 
 
 _SAFE_LABEL = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
+
+
+@dataclass(frozen=True)
+class ActiveCall:
+    """A recent call notification addressed to this paired device."""
+
+    call_type: str
+    device_id: str
+    message_id: str
+    channel_id: str | None
+
+
+def incoming_call(message: Any, expected_device_id: str) -> ActiveCall | None:
+    """Extract only the fields the APK uses for its call control command."""
+    if not isinstance(message, dict) or message.get("protocol") != 43:
+        return None
+    body = message.get("data")
+    if not isinstance(body, dict) or body.get("devId") != expected_device_id:
+        return None
+    call_type = body.get("etype")
+    message_id = body.get("edata")
+    channel_id = body.get("cid")
+    if (not _label(call_type) or call_type == "doorbell"
+            or not isinstance(message_id, str) or not message_id
+            or len(message_id) > 512):
+        return None
+    if channel_id is not None and (not isinstance(channel_id, str) or not channel_id):
+        return None
+    return ActiveCall(call_type, expected_device_id, message_id, channel_id)
 
 
 def _digest(value: object) -> str | None:

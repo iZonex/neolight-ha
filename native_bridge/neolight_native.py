@@ -19,6 +19,8 @@ import time
 from typing import Callable
 
 import aiohttp
+from tuya_ipc_p2p_sdk.signaling.envelope import aes_ecb_decrypt, decode_frame, parse_json_object
+from tuya_ipc_p2p_sdk.signaling.moto_client import MotoClient
 from tuya_ipc_p2p_sdk.control import parse_control
 from tuya_ipc_p2p_sdk.crypto import decrypt_record, encrypt_record
 from tuya_ipc_p2p_sdk.models import MqttIdentity, StreamConfig
@@ -28,6 +30,7 @@ from tuya_ipc_p2p_sdk.transport.relay_session import VIDEO_CONVERSATION
 
 from mobile_api import MobileApiClient, MobileApiError
 from account_identity import native_static_fields
+from call_signaling import ActiveCall, call_command, incoming_call
 from panel_protocol import PanelProfile
 from protocol import TALK_START_TYPE, audio_packet, control_packet
 
@@ -38,6 +41,28 @@ VIDEO_URL = os.environ.get("NEOLIGHT_VIDEO_URL", "rtsp://127.0.0.1:8556/neolight
 TALK_PORT = int(os.environ.get("NEOLIGHT_TALK_PORT", "38556"))
 VIDEO_TYPE = 0x00010003
 AUDIO_TYPE = 0x00010005
+CALL_MAX_AGE = 60
+
+
+class CallAwareMotoClient(MotoClient):
+    """Pass fresh call notifications to the same P2P session's talk control."""
+
+    def __init__(self, *args, on_call: Callable[[ActiveCall], None], **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._on_call = on_call
+
+    def _consume(self, payload: bytes) -> None:
+        try:
+            decoded = parse_json_object(
+                aes_ecb_decrypt(self._key, decode_frame(payload).body)
+            )
+            call = incoming_call(decoded, self._device_id)
+            if call is not None:
+                self._on_call(call)
+                return
+        except Exception:
+            pass
+        super()._consume(payload)
 
 
 def md5(value: str) -> str:
@@ -192,6 +217,54 @@ class NeoLightSession(StreamSession):
         self.last_video = time.monotonic()
         self.talk_active = False
         self._control_responses: asyncio.Queue[tuple[int, int]] = asyncio.Queue()
+        self._incoming_call: ActiveCall | None = None
+        self._incoming_at = 0.0
+        self._answered_call: ActiveCall | None = None
+
+    async def _async_connect_signaling(self, session_id: str) -> None:
+        self._moto = CallAwareMotoClient(
+            identity=self._identity,
+            uid=self._uid,
+            device_id=self._config.device_id,
+            session_id=session_id,
+            local_key=self._config.local_key,
+            on_answer=self._on_answer,
+            on_candidate=self._on_remote_candidate,
+            on_disconnect=self._on_device_disconnect,
+            on_call=self._on_incoming_call,
+        )
+        await self._moto.async_connect()
+
+    def _on_incoming_call(self, call: ActiveCall) -> None:
+        self._incoming_call = call
+        self._incoming_at = time.monotonic()
+        LOGGER.info("Incoming %s call is available for Apple Home Talk", call.call_type)
+
+    async def answer_active_call(self) -> None:
+        call = self._incoming_call
+        if call is None or time.monotonic() - self._incoming_at > CALL_MAX_AGE:
+            return
+        moto = self._require_moto()
+        await moto._async_publish(
+            308, call_command(call.call_type, call.device_id, call.message_id,
+                              "accept", call.channel_id)
+        )
+        self._answered_call = call
+        LOGGER.info("NeoLight call answer sent for Apple Home Talk")
+
+    async def hangup_active_call(self) -> None:
+        call = self._answered_call
+        self._answered_call = None
+        if call is None:
+            return
+        moto = self._require_moto()
+        await moto._async_publish(
+            308, call_command(call.call_type, call.device_id, call.message_id,
+                              "stop", call.channel_id)
+        )
+        if self._incoming_call == call:
+            self._incoming_call = None
+        LOGGER.info("NeoLight call hangup sent after Apple Home Talk")
 
     def _on_media_record(self, record: bytes) -> None:
         self.raw_video_records += 1
@@ -360,6 +433,10 @@ async def handle_talk(reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     sent = 0
     signal_bytes = 0
     try:
+        try:
+            await session.answer_active_call()
+        except Exception:
+            LOGGER.exception("NeoLight call answer failed; continuing P2P Talk")
         # The official app sends type 6 when Talk starts on a fresh P2P session.
         # Outbound audio frames also use type 6, with a different header shape.
         session.send_control(TALK_START_TYPE, 0)
@@ -376,6 +453,10 @@ async def handle_talk(reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     except Exception as error:
         LOGGER.warning("Talk channel ended: %s", type(error).__name__)
     finally:
+        try:
+            await session.hangup_active_call()
+        except Exception:
+            LOGGER.exception("NeoLight call hangup failed")
         try:
             session.send_control(0, 1)
         except Exception:
