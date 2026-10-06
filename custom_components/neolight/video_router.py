@@ -83,10 +83,21 @@ class VideoRouter:
             raise ValueError("current video channel is unknown")
         return profile, dp_id, raw
 
+    async def _wait_for_channel(self, channel: int, dp_id: str) -> None:
+        """A cloud publish can be acknowledged before the DP state changes."""
+        for _ in range(7):
+            device = await self._runtime.mobile.read_device(
+                self._runtime.vendor["paired_device_id"]
+            )
+            if selected_channel((device.get("dps") or {}).get(dp_id)) == channel:
+                return
+            await asyncio.sleep(1)
+        raise TimeoutError(f"video input {channel} was not confirmed")
+
     async def _route(self) -> None:
         previous: int | None = None
         try:
-            profile, _, raw = await self._device()
+            profile, dp_id, raw = await self._device()
             previous = selected_channel(raw)
             if previous == self._call_channel:
                 return
@@ -99,6 +110,7 @@ class VideoRouter:
             await self._runtime.mobile.publish_dps(
                 self._runtime.vendor["paired_device_id"], command
             )
+            await self._wait_for_channel(self._call_channel, dp_id)
             _LOGGER.info("NeoLight video routed to call channel %s", self._call_channel)
             self._selected.set()
             await self._finish(self._call_channel, previous)
@@ -115,12 +127,13 @@ class VideoRouter:
                 await asyncio.sleep(min(self._deadline - time.time(), 5))
             for attempt in range(3):
                 try:
-                    profile, _, raw = await self._device()
+                    profile, dp_id, raw = await self._device()
                     if selected_channel(raw) == target:
                         command = profile.channel_command(raw, previous)
                         await self._runtime.mobile.publish_dps(
                             self._runtime.vendor["paired_device_id"], command
                         )
+                        await self._wait_for_channel(previous, dp_id)
                         _LOGGER.info("NeoLight video restored to channel %s", previous)
                     self._state_path.unlink(missing_ok=True)
                     return
