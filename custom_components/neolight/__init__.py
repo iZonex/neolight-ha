@@ -16,6 +16,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .client import MonitorClient, MonitorState
 from .const import DOMAIN, PLATFORMS, POLL_INTERVAL
 from .mobile_api import MobileApiClient, MobileApiError
+from .profile import ha_static_fields
 from .settings import legacy_vendor_path, load_vendor, runtime_directory, write_private_json
 
 _LOGGER = logging.getLogger(__name__)
@@ -61,22 +62,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     client = MonitorClient(session, entry.data["host"])
     vendor = await hass.async_add_executor_job(load_vendor, entry)
     state_dir = runtime_directory(hass, entry)
-    if "vendor" in entry.data:
+    if vendor:
         await hass.async_add_executor_job(write_private_json, state_dir / "vendor_config.json", vendor)
+    if "vendor" in entry.data:
         if entry.data.get("initial_session") and not (state_dir / "runtime_session.json").exists():
             await hass.async_add_executor_job(
                 write_private_json, state_dir / "runtime_session.json", entry.data["initial_session"]
             )
 
     async def save_mobile_session(result: dict) -> None:
-        """Share one authenticated session with the optional video bridge."""
+        """Keep a session file for older media bridge installations."""
         values = {key: result[key] for key in ("sid", "ecode", "partnerIdentity") if key in result}
         await hass.async_add_executor_job(write_private_json, state_dir / "runtime_session.json", values)
 
     mobile = (
         MobileApiClient(
-            session, vendor["api_host"], vendor["static_fields"],
-            vendor["signing_key"], vendor.get("sid", ""),
+            session, vendor["api_host"], ha_static_fields(vendor["static_fields"]),
+            vendor["signing_key"],
+            "" if vendor.get("email") and vendor.get("password") else vendor.get("sid", ""),
             vendor.get("email", ""), vendor.get("password", ""),
             vendor.get("country_code", "380"),
             on_login=save_mobile_session,
@@ -86,7 +89,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if mobile is not None and not mobile.sid:
         await mobile.login()
 
+    last_schema: list = []
+
     async def fetch_state() -> MonitorState:
+        nonlocal last_schema
         local_result, cloud_result = await asyncio.gather(
             client.probe(),
             mobile.read_device(vendor["paired_device_id"]) if mobile else asyncio.sleep(0, result=None),
@@ -94,15 +100,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
         local_online = not isinstance(local_result, Exception)
         cloud_online = isinstance(cloud_result, dict) and cloud_result.get("isOnline") is True
+        if mobile is not None and not isinstance(cloud_result, dict) and not last_schema:
+            raise UpdateFailed(str(cloud_result))
         if not local_online and not isinstance(cloud_result, dict):
             error = cloud_result if isinstance(cloud_result, Exception) else local_result
             raise UpdateFailed(str(error))
         if isinstance(cloud_result, MobileApiError):
             _LOGGER.warning("NeoLight account API: %s", cloud_result)
+        schema = cloud_result.get("schema", []) if isinstance(cloud_result, dict) else []
+        if isinstance(schema, str):
+            try:
+                schema = json.loads(schema)
+            except ValueError:
+                schema = []
+        if not isinstance(schema, list):
+            schema = []
+        if schema:
+            last_schema = schema
+        elif not isinstance(cloud_result, dict):
+            schema = last_schema
         return MonitorState(
             online=local_online,
             cloud_online=cloud_online,
             dps=cloud_result.get("dps", {}) if isinstance(cloud_result, dict) else {},
+            schema=schema,
         )
 
     coordinator: DataUpdateCoordinator[MonitorState] = DataUpdateCoordinator(

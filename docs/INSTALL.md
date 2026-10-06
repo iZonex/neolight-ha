@@ -46,14 +46,19 @@ In the integration's **Configure** form, select which entities to expose.
 Lock 2 is off by default because its physical destination has not been
 verified. Configure the camera RTSP URL as
 `rtsp://127.0.0.1:8556/neolight_door_with_audio` when the media stack below
-is running on the same host and Home Assistant uses host networking.
+is running on the same host and Home Assistant uses host networking. Set
+**Preferred video channel** to the channel carrying the entrance camera if
+the monitor returns to a blank or different input after a media reconnect.
+`0` leaves the monitor's current selection alone. The tested ALPHA Hybrid
+uses channel `1` for DOOR; confirm the mapping on other installations.
 
 ## 2. Start the media stack
 
 On the Docker host, clone this repository. Copy `.env.compose.example` to
 `.env` and set `NEOLIGHT_HA_CONFIG` to the absolute host path of Home
 Assistant's config directory. The integration must already have written
-`NEOLIGHT_HA_CONFIG/neolight/vendor_config.json` and `runtime_session.json`.
+`NEOLIGHT_HA_CONFIG/neolight/vendor_config.json`. The native bridge signs in
+with a separate installation identity, so HA and media do not share a SID.
 
 ```sh
 docker compose up -d --build go2rtc native avmux
@@ -87,9 +92,14 @@ HomeKit Bridge; its physical action from Apple Home remains unverified.
 
 ## Known limits
 
-- Auto unlock is disabled in code until a fresh Vizit call signal is proven.
-- The current cloud doorbell event is polled and may miss a call. It must not
-  drive an unlocking automation.
+- Automatic unlock is off by default. Before enabling the **Auto unlock on
+  ring** switch, use **Unlock once on the next ring** in the integration options
+  for a supervised physical test. It arms a single Lock 1 release for fifteen
+  minutes, accepts only a new timestamped call seen within ten seconds of its
+  snapshot, and disarms after the attempt or expiry. Check the HA log and the
+  physical door before enabling the persistent switch.
+- The cloud doorbell event is polled and may miss a call. A missed call cannot
+  trigger the one-time release.
 - Incoming-call answer/hangup through HA is not implemented. Apple Home Live
   talk is an on-demand media session.
 - Other NeoLight models, firmware, and analog adapters need their own testing.

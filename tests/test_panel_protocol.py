@@ -36,11 +36,24 @@ class PanelProfileTests(unittest.TestCase):
         self.assertEqual((data["cmd"], data["cc"]), (1, 2))
         self.assertEqual(data["chs"][0]["n"], "DOOR")
 
-    def test_rejects_unpaired_or_read_only_dps(self):
+    def test_partial_schema_exposes_only_confirmed_controls(self):
+        profile = module.PanelProfile.from_schema(SCHEMA[:1])
+        self.assertTrue(profile.supports("lock_1"))
+        self.assertFalse(profile.supports("lock_2"))
+        self.assertEqual(profile.lock_command("lock_1", False), {"148": True})
         with self.assertRaises(ValueError):
-            module.PanelProfile.from_schema(SCHEMA[:2])
+            profile.lock_command("lock_2", False)
         with self.assertRaises(ValueError):
-            module.PanelProfile.from_schema([{**SCHEMA[0], "mode": "ro"}, *SCHEMA[1:]])
+            module.PanelProfile.from_schema(SCHEMA[:1], required=("lock_2",))
+
+    def test_rejects_read_only_or_malformed_dps(self):
+        read_only = [{**SCHEMA[0], "mode": "ro"}, *SCHEMA[1:]]
+        self.assertFalse(module.PanelProfile.from_schema(read_only).supports("lock_1"))
+        with self.assertRaises(ValueError):
+            module.PanelProfile.from_schema(read_only, required=("lock_1",))
+        self.assertFalse(module.PanelProfile.from_schema([{**SCHEMA[0], "id": "bad"}]).supports("lock_1"))
+        with self.assertRaises(ValueError):
+            module.PanelProfile.from_schema([{**SCHEMA[0], "id": "bad"}], required=("lock_1",))
         with self.assertRaises(ValueError):
             self.profile.channel_command('{"chs":[{"id":1}]}', 2)
 

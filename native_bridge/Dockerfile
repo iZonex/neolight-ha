@@ -7,7 +7,9 @@ RUN apt-get update \
 
 WORKDIR /app
 COPY custom_components/neolight/mobile_api.py /app/mobile_api.py
+COPY custom_components/neolight/panel_protocol.py /app/panel_protocol.py
 COPY native_bridge/neolight_native.py /app/neolight_native.py
+COPY native_bridge/account_identity.py /app/account_identity.py
 COPY native_bridge/protocol.py /app/protocol.py
 COPY native_bridge/avmux.py /app/avmux.py
 COPY native_bridge/observe_mobile_mqtt.py /app/observe_mobile_mqtt.py

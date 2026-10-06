@@ -9,8 +9,11 @@ that audio and publishes `neolight_door_with_audio` through go2rtc.
 Use the root [installation guide](../docs/INSTALL.md) and `compose.yaml` for
 a new installation. Both containers read private runtime settings exported by
 the HA integration to `/config/neolight`. The native bridge needs
-`vendor_config.json` and `runtime_session.json`; the mux also needs the RTSP
-fields in `vendor_config.json`. Neither file belongs in Git.
+`vendor_config.json`; the mux also needs the RTSP fields in that file. The
+bridge signs in with its own stable client identity, so HA session refreshes
+do not invalidate its media session. If `preferred_video_channel` is set to
+a nonzero channel in HA, the native bridge selects it when connecting, using
+the paired device's writable channel DP. The config file does not belong in Git.
 
 The publish URLs, talk port, go2rtc API URL, mux output stream, and runtime
 path can be changed with the `NEOLIGHT_*` environment variables in the two

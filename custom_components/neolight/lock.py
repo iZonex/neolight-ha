@@ -11,6 +11,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
+from .panel_protocol import PanelProfile
 
 
 async def async_setup_entry(
@@ -18,7 +19,9 @@ async def async_setup_entry(
 ) -> None:
     """Add a door release when the paired account can control Lock 1."""
     runtime = hass.data[DOMAIN][entry.entry_id]
-    if runtime.mobile is not None and entry.options.get("enable_lock_1", True):
+    if (runtime.mobile is not None
+            and entry.options.get("enable_lock_1", True)
+            and PanelProfile.from_schema(runtime.coordinator.data.schema).supports("lock_1")):
         async_add_entities([NeoLightDoorRelease(entry)])
 
 

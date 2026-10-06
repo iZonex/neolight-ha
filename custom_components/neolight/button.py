@@ -9,6 +9,7 @@ from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -24,13 +25,24 @@ async def async_setup_entry(
 ) -> None:
     """Add relay buttons when the app's DP transport is configured."""
     runtime = hass.data[DOMAIN][entry.entry_id]
-    if runtime.mobile is not None:
-        buttons = []
-        if entry.options.get("enable_lock_1", True):
-            buttons.append(NeoLightRelayButton(entry, runtime, "lock_1", "Lock 1"))
-        if entry.options.get("enable_lock_2", "vendor" not in entry.data):
-            buttons.append(NeoLightRelayButton(entry, runtime, "lock_2", "Lock 2"))
-        async_add_entities(buttons)
+    profile = PanelProfile.from_schema(
+        runtime.coordinator.data.schema if runtime.mobile is not None else []
+    )
+    buttons = []
+    registry = entity_registry.async_get(hass)
+    for control, name, enabled in (
+        ("lock_1", "Lock 1", entry.options.get("enable_lock_1", True)),
+        ("lock_2", "Lock 2", entry.options.get("enable_lock_2", False)),
+    ):
+        if runtime.mobile is not None and profile.supports(control) and enabled:
+            buttons.append(NeoLightRelayButton(entry, runtime, control, name))
+        elif not enabled:
+            unique_id = f"{entry.data['host']}_{control}"
+            for old_entity in tuple(registry.entities.values()):
+                if (old_entity.domain == "button" and old_entity.platform == DOMAIN
+                        and old_entity.unique_id == unique_id):
+                    registry.async_remove(old_entity.entity_id)
+    async_add_entities(buttons)
 
 
 class NeoLightRelayButton(ButtonEntity):
@@ -64,7 +76,13 @@ class NeoLightRelayButton(ButtonEntity):
             if device.get("isOnline") is not True:
                 raise HomeAssistantError("NeoLight device is offline")
             schema = device.get("schema")
-            profile = PanelProfile.from_schema(json.loads(schema) if isinstance(schema, str) else schema)
+            try:
+                profile = PanelProfile.from_schema(
+                    json.loads(schema) if isinstance(schema, str) else schema,
+                    required=(self._control,),
+                )
+            except (ValueError, TypeError) as error:
+                raise HomeAssistantError(f"NeoLight relay schema changed: {error}") from error
             dp_id = str(profile.dp_ids[self._control])
             current = (device.get("dps") or {}).get(dp_id)
             if current is True:

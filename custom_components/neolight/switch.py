@@ -1,13 +1,18 @@
 """Home Assistant controls for NeoLight call behavior."""
 
+import logging
+
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import AUTO_UNLOCK_SAFETY_HOLD, DOMAIN
+
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
@@ -15,6 +20,15 @@ async def async_setup_entry(
 ) -> None:
     """Show automatic opening directly on the NeoLight device page."""
     runtime = hass.data[DOMAIN][entry.entry_id]
+    if AUTO_UNLOCK_SAFETY_HOLD:
+        registry = entity_registry.async_get(hass)
+        unique_id = f"{entry.data['host']}_auto_unlock_on_ring"
+        for old_entity in tuple(registry.entities.values()):
+            if (old_entity.domain == "switch" and old_entity.platform == DOMAIN
+                    and old_entity.unique_id == unique_id):
+                registry.async_remove(old_entity.entity_id)
+                _LOGGER.info("Removed the unavailable NeoLight auto unlock switch")
+        return
     if runtime.mobile is not None:
         async_add_entities([NeoLightAutoUnlockSwitch(entry)])
 
@@ -48,7 +62,7 @@ class NeoLightAutoUnlockSwitch(SwitchEntity):
     async def async_turn_on(self, **kwargs) -> None:
         """Enable automatic opening for the next ring."""
         if AUTO_UNLOCK_SAFETY_HOLD:
-            raise HomeAssistantError("NeoLight auto unlock is paused while false ring events are investigated")
+            raise HomeAssistantError("NeoLight auto unlock is paused by the integration safety hold")
         self.hass.config_entries.async_update_entry(
             self._entry, options={**self._entry.options, "auto_unlock_on_ring": True}
         )

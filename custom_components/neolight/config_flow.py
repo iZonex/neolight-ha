@@ -1,8 +1,8 @@
 """UI configuration for a NeoLight monitor."""
 
 import ipaddress
-import json
 import re
+import time
 from typing import Any
 
 from aiohttp import ClientError
@@ -17,35 +17,11 @@ from homeassistant.helpers.selector import TextSelector, TextSelectorConfig, Tex
 from .client import MonitorClient, MonitorUnavailable
 from .const import AUTO_UNLOCK_SAFETY_HOLD, CONF_RTSP_PASSWORD, CONF_RTSP_USER, CONF_STREAM_ID, DOMAIN
 from .mobile_api import MobileApiClient, MobileApiError
+from .profile import ha_static_fields, parse_app_profile
 from .settings import load_vendor
 
 
 STREAM_ID_PATTERN = re.compile(r"^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$")
-APP_PROFILE_KEYS = {"api_host", "signing_key", "static_fields", "paired_device_id"}
-STATIC_FIELD_KEYS = {"appVersion", "chKey", "clientId", "deviceId", "lang", "os", "ttid"}
-
-
-def parse_app_profile(raw: str) -> dict[str, Any]:
-    """Validate the per-app credentials without assuming one owner's APK values."""
-    try:
-        profile = json.loads(raw)
-    except (ValueError, TypeError) as error:
-        raise ValueError("invalid_profile") from error
-    if not isinstance(profile, dict) or not APP_PROFILE_KEYS <= profile.keys():
-        raise ValueError("invalid_profile")
-    if not all(isinstance(profile[key], str) and profile[key] for key in
-               ("api_host", "signing_key", "paired_device_id")):
-        raise ValueError("invalid_profile")
-    fields = profile["static_fields"]
-    if not isinstance(fields, dict) or not STATIC_FIELD_KEYS <= fields.keys():
-        raise ValueError("invalid_profile")
-    if not all(isinstance(fields[key], str) and fields[key] for key in STATIC_FIELD_KEYS):
-        raise ValueError("invalid_profile")
-    if "://" in profile["api_host"] or "/" in profile["api_host"]:
-        raise ValueError("invalid_profile")
-    return {key: profile[key] for key in APP_PROFILE_KEYS}
-
-
 def account_schema(current: dict[str, Any]) -> vol.Schema:
     """Show the account and door release settings in HA."""
     fields = {
@@ -53,10 +29,13 @@ def account_schema(current: dict[str, Any]) -> vol.Schema:
             vol.In({"lock_1": "Lock 1", "lock_2": "Lock 2"}),
         vol.Required("auto_unlock_delay", default=current.get("auto_unlock_delay", 0)):
             vol.All(vol.Coerce(int), vol.Range(min=0, max=30)),
+        vol.Required("auto_unlock_test_once", default=False): bool,
         vol.Required("enable_camera", default=current.get("enable_camera", True)): bool,
         vol.Required("enable_doorbell", default=current.get("enable_doorbell", True)): bool,
         vol.Required("enable_lock_1", default=current.get("enable_lock_1", True)): bool,
         vol.Required("enable_lock_2", default=current.get("enable_lock_2", False)): bool,
+        vol.Required("preferred_video_channel", default=current.get("preferred_video_channel", 0)):
+            vol.All(vol.Coerce(int), vol.Range(min=0, max=32)),
         vol.Optional("restream_url", default=current.get("restream_url", "")): str,
         vol.Optional("homekit_ring_url", default=current.get("homekit_ring_url", "")): str,
         vol.Optional("stream_id", default=current.get("stream_id", "")): str,
@@ -80,14 +59,21 @@ def account_schema(current: dict[str, Any]) -> vol.Schema:
 
 async def validate_account(hass, vendor: dict[str, Any], current: dict[str, Any], user_input: dict[str, Any]):
     """Return updated options after checking new credentials if they changed."""
+    test_once = user_input["auto_unlock_test_once"]
     options = {
-        "auto_unlock_on_ring": user_input.get("auto_unlock_on_ring", False) and not AUTO_UNLOCK_SAFETY_HOLD,
+        "auto_unlock_on_ring": (
+            user_input.get("auto_unlock_on_ring", False)
+            and not AUTO_UNLOCK_SAFETY_HOLD and not test_once
+        ),
+        "auto_unlock_test_once": test_once,
+        "auto_unlock_test_deadline": int(time.time()) + 900 if test_once else 0,
         "auto_unlock_relay": user_input["auto_unlock_relay"],
         "auto_unlock_delay": user_input["auto_unlock_delay"],
         "enable_camera": user_input["enable_camera"],
         "enable_doorbell": user_input["enable_doorbell"],
         "enable_lock_1": user_input["enable_lock_1"],
         "enable_lock_2": user_input["enable_lock_2"],
+        "preferred_video_channel": user_input["preferred_video_channel"],
         "restream_url": user_input.get("restream_url", "").strip(),
         "homekit_ring_url": user_input.get("homekit_ring_url", "").strip(),
         "stream_id": user_input.get("stream_id", "").strip().lower(),
@@ -114,13 +100,12 @@ async def validate_account(hass, vendor: dict[str, Any], current: dict[str, Any]
     if changed:
         client = MobileApiClient(
             async_get_clientsession(hass),
-            vendor["api_host"], vendor["static_fields"], vendor["signing_key"],
+            vendor["api_host"], ha_static_fields(vendor["static_fields"]), vendor["signing_key"],
             email=email, password=password, country_code=country_code,
         )
         await client.login()
         await client.read_device(vendor["paired_device_id"])
-        # Re-login in the runtime so its sidecar session file receives the
-        # ecode and partner identity along with the new SID.
+        # Re-login in the runtime after changing the account credentials.
         options["sid"] = ""
     return options
 
@@ -232,7 +217,7 @@ class NeoLightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vendor.update(email=email, password=password, country_code=country)
                     client = MobileApiClient(
                         async_get_clientsession(self.hass), vendor["api_host"],
-                        vendor["static_fields"], vendor["signing_key"],
+                        ha_static_fields(vendor["static_fields"]), vendor["signing_key"],
                         email=email, password=password, country_code=country,
                     )
                     login_result = await client.login()
@@ -261,8 +246,10 @@ class NeoLightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         "enable_doorbell": bool(raw_profile),
                         "enable_lock_1": bool(raw_profile),
                         "enable_lock_2": False,
+                        "preferred_video_channel": 0,
                         "homekit_ring_url": "",
                         "auto_unlock_on_ring": False,
+                        "auto_unlock_test_once": False,
                     },
                 )
         schema = vol.Schema({

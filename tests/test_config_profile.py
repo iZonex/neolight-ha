@@ -3,10 +3,27 @@
 import json
 import unittest
 
-from custom_components.neolight.config_flow import parse_app_profile
+import importlib.util
+from pathlib import Path
+
+
+MODULE_PATH = Path(__file__).resolve().parents[1] / "custom_components/neolight/profile.py"
+spec = importlib.util.spec_from_file_location("neolight_profile_under_test", MODULE_PATH)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+parse_app_profile = module.parse_app_profile
+ha_static_fields = module.ha_static_fields
 
 
 class AppProfileTests(unittest.TestCase):
+    def test_ha_uses_a_stable_separate_installation_id(self):
+        fields = {"deviceId": "owner-phone", "clientId": "same-app"}
+        result = ha_static_fields(fields)
+        self.assertEqual(result, ha_static_fields(fields))
+        self.assertNotEqual(result["deviceId"], fields["deviceId"])
+        self.assertEqual(result["clientId"], fields["clientId"])
+        self.assertEqual(fields["deviceId"], "owner-phone")
+
     def test_accepts_complete_profile(self):
         profile = {
             "api_host": "api.example.invalid",
