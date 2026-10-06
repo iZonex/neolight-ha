@@ -9,6 +9,7 @@ from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -24,14 +25,24 @@ async def async_setup_entry(
 ) -> None:
     """Add relay buttons when the app's DP transport is configured."""
     runtime = hass.data[DOMAIN][entry.entry_id]
-    if runtime.mobile is not None:
-        profile = PanelProfile.from_schema(runtime.coordinator.data.schema)
-        buttons = []
-        if profile.supports("lock_1") and entry.options.get("enable_lock_1", True):
-            buttons.append(NeoLightRelayButton(entry, runtime, "lock_1", "Lock 1"))
-        if profile.supports("lock_2") and entry.options.get("enable_lock_2", False):
-            buttons.append(NeoLightRelayButton(entry, runtime, "lock_2", "Lock 2"))
-        async_add_entities(buttons)
+    profile = PanelProfile.from_schema(
+        runtime.coordinator.data.schema if runtime.mobile is not None else []
+    )
+    buttons = []
+    registry = entity_registry.async_get(hass)
+    for control, name, enabled in (
+        ("lock_1", "Lock 1", entry.options.get("enable_lock_1", True)),
+        ("lock_2", "Lock 2", entry.options.get("enable_lock_2", False)),
+    ):
+        if runtime.mobile is not None and profile.supports(control) and enabled:
+            buttons.append(NeoLightRelayButton(entry, runtime, control, name))
+        elif not enabled:
+            old_entity = registry.async_get_entity_id(
+                "button", DOMAIN, f"{entry.data['host']}_{control}"
+            )
+            if old_entity:
+                registry.async_remove(old_entity)
+    async_add_entities(buttons)
 
 
 class NeoLightRelayButton(ButtonEntity):
