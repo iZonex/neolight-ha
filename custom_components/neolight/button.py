@@ -37,11 +37,11 @@ async def async_setup_entry(
         if runtime.mobile is not None and profile.supports(control) and enabled:
             buttons.append(NeoLightRelayButton(entry, runtime, control, name))
         elif not enabled:
-            old_entity = registry.async_get_entity_id(
-                "button", DOMAIN, f"{entry.data['host']}_{control}"
-            )
-            if old_entity:
-                registry.async_remove(old_entity)
+            unique_id = f"{entry.data['host']}_{control}"
+            for old_entity in tuple(registry.entities.values()):
+                if (old_entity.domain == "button" and old_entity.platform == DOMAIN
+                        and old_entity.unique_id == unique_id):
+                    registry.async_remove(old_entity.entity_id)
     async_add_entities(buttons)
 
 
