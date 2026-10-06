@@ -68,6 +68,27 @@ class CallStateTests(unittest.TestCase):
         self.assertIsNone(detector.observe(True, None, 106))
         self.assertEqual(detector.observe(True, None, 126).number, 2)
 
+    def test_release_needs_snapshot_even_if_status_starts_first(self):
+        detector = module.RingEpisodeDetector(initial_call_status=2, now=100)
+        gate = module.ReleaseEpisodeGate()
+        self.assertEqual(detector.observe(False, 0, 101).number, 1)
+        self.assertFalse(gate.observe(False, detector.episode_number))
+        self.assertIsNone(detector.observe(True, 0, 105))
+        self.assertTrue(gate.observe(True, detector.episode_number))
+        self.assertFalse(gate.observe(True, detector.episode_number))
+
+    def test_release_does_not_replay_active_call_after_restart(self):
+        detector = module.RingEpisodeDetector(initial_call_status=0, now=100)
+        gate = module.ReleaseEpisodeGate()
+        self.assertIsNone(detector.observe(True, 0, 105))
+        self.assertFalse(gate.observe(True, detector.episode_number))
+
+    def test_release_can_run_once_for_next_episode(self):
+        gate = module.ReleaseEpisodeGate()
+        self.assertTrue(gate.observe(True, 1))
+        self.assertFalse(gate.observe(True, 1))
+        self.assertTrue(gate.observe(True, 2))
+
     def test_call_status_only_triggers_on_new_active_call(self):
         self.assertTrue(module.started_new_call(2, 0))
         self.assertFalse(module.started_new_call(None, 0))

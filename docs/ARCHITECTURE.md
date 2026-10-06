@@ -38,7 +38,10 @@ release attempt. It also ignores an active call already present when HA starts.
 Signals within 20 seconds are merged conservatively, which can hide a very
 quick second call. This correlation does not make cloud polling lossless.
 Automatic unlock is off by default and requires the HA switch. Each command
-requires a ring captured within ten seconds; the one-time test expires after
+requires a timestamped snapshot captured within ten seconds. An app
+`callStatus` transition can announce a call, but cannot open a door by itself.
+If it arrives before the snapshot, the later validated snapshot can still
+release once for that call. The one-time test expires after
 fifteen minutes and disarms after its first attempt.
 
 The native bridge uses `tuya-ipc-p2p-sdk` for its encrypted session. It signs

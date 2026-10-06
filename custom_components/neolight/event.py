@@ -18,7 +18,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import AUTO_UNLOCK_SAFETY_HOLD, DOMAIN
 from .call_control import CallControlError, reset_call
-from .call_state import RingEpisodeDetector
+from .call_state import ReleaseEpisodeGate, RingEpisodeDetector
 from .release_policy import release_mode
 from .ring_message import RingDeduplicator, doorbell_event
 from .settings import runtime_directory
@@ -62,6 +62,7 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
             runtime.coordinator.data.call_status if runtime.coordinator.data else None,
             time.monotonic(),
         )
+        self._release_gate = ReleaseEpisodeGate()
         self._pending_unlock: asyncio.Task | None = None
         self._test_consumed = False
         self._video_router = VideoRouter(
@@ -104,17 +105,20 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
                 self.hass.async_create_task(self._notify_after_video_route(selected))
             else:
                 self.hass.async_create_task(self._notify_homekit_doorbell())
-            captured_at = event[0] if event else int(time.time())
-            mode = release_mode(
-                self._entry.options, captured_at, time.time(), AUTO_UNLOCK_SAFETY_HOLD
-            )
-            if mode and (self._pending_unlock is None or self._pending_unlock.done()):
-                if mode != "once" or not self._test_consumed:
-                    self._test_consumed = mode == "once"
-                    _LOGGER.info("NeoLight auto unlock requested for fresh ring (%s)", mode)
-                    self._pending_unlock = self.hass.async_create_task(
-                        self._auto_unlock(captured_at, mode)
-                    )
+        if self._release_gate.observe(fresh_snapshot, self._episodes.episode_number):
+            event = doorbell_event(raw)
+            if event:
+                captured_at = event[0]
+                mode = release_mode(
+                    self._entry.options, captured_at, time.time(), AUTO_UNLOCK_SAFETY_HOLD
+                )
+                if mode and (self._pending_unlock is None or self._pending_unlock.done()):
+                    if mode != "once" or not self._test_consumed:
+                        self._test_consumed = mode == "once"
+                        _LOGGER.info("NeoLight auto unlock requested for fresh ring (%s)", mode)
+                        self._pending_unlock = self.hass.async_create_task(
+                            self._auto_unlock(captured_at, mode)
+                        )
         super()._handle_coordinator_update()
 
     async def _notify_after_video_route(self, selected: asyncio.Event) -> None:

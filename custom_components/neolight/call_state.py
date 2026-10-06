@@ -58,6 +58,24 @@ class RingEpisodeDetector:
         )
         return RingEpisode(self._episode_number, "snapshot" if fresh_snapshot else "call_status")
 
+    @property
+    def episode_number(self) -> int:
+        """The latest accepted episode; zero means no fresh call since startup."""
+        return self._episode_number
+
+
+class ReleaseEpisodeGate:
+    """Require fresh snapshot evidence and consume it once per call."""
+
+    def __init__(self) -> None:
+        self._last_evidenced_episode = 0
+
+    def observe(self, fresh_snapshot: bool, episode_number: int) -> bool:
+        if not fresh_snapshot or episode_number <= self._last_evidenced_episode:
+            return False
+        self._last_evidenced_episode = episode_number
+        return True
+
 
 def ring_channels(schema: list[Mapping[str, Any]]) -> dict[int, int]:
     """Return channel -> DP ID for read-only Ring/Normal enum controls."""
