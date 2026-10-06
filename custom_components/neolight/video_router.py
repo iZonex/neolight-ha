@@ -42,19 +42,22 @@ class VideoRouter:
         if self._task is None or self._task.done():
             self._selected.clear()
             self._task = asyncio.create_task(self._route())
-        elif self._state_path.exists():
-            try:
-                state = json.loads(self._state_path.read_text())
-                state["expires"] = self._deadline
-                write_private_json(self._state_path, state)
-            except (ValueError, OSError):
-                _LOGGER.warning("NeoLight call video deadline could not be extended")
+        else:
+            asyncio.create_task(asyncio.to_thread(self._extend_deadline))
         return self._selected
 
-    def resume(self) -> None:
-        """Restore a call route after a Home Assistant reload or restart."""
+    def _extend_deadline(self) -> None:
         try:
             state = json.loads(self._state_path.read_text())
+            state["expires"] = self._deadline
+            write_private_json(self._state_path, state)
+        except (FileNotFoundError, ValueError, OSError):
+            _LOGGER.warning("NeoLight call video deadline could not be extended")
+
+    async def resume(self) -> None:
+        """Restore a call route after a Home Assistant reload or restart."""
+        try:
+            state = await asyncio.to_thread(lambda: json.loads(self._state_path.read_text()))
             target = state["call_channel"]
             previous = state["previous_channel"]
             deadline = state["expires"]
@@ -116,7 +119,7 @@ class VideoRouter:
             await self._finish(self._call_channel, previous)
         except Exception:
             _LOGGER.exception("NeoLight call video routing failed")
-            if self._state_path.exists() and previous is not None:
+            if previous is not None:
                 await self._finish(self._call_channel, previous)
         finally:
             self._selected.set()
@@ -135,7 +138,7 @@ class VideoRouter:
                         )
                         await self._wait_for_channel(previous, dp_id)
                         _LOGGER.info("NeoLight video restored to channel %s", previous)
-                    self._state_path.unlink(missing_ok=True)
+                    await asyncio.to_thread(self._state_path.unlink, missing_ok=True)
                     return
                 except Exception:
                     _LOGGER.exception("NeoLight call video restore attempt %s failed", attempt + 1)

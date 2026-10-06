@@ -65,7 +65,7 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
-        self._video_router.resume()
+        await self._video_router.resume()
 
     def _handle_coordinator_update(self) -> None:
         state = self.coordinator.data
