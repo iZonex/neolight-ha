@@ -10,12 +10,13 @@
           "automatic_opening": "Automatic opening",
           "apple_home": "Apple Home",
           "advanced": "Advanced media",
-          "account": "NeoLight account"
+          "account": "NeoLight account",
+          "link_account": "Link NeoLight account"
         }
       },
       "entrances": {
         "title": "Entrances and video",
-        "description": "Choose the video source used at rest and during a call, and expose only verified door controls.",
+        "description": "Configure the camera and, when an account is linked, the video input and door controls.",
         "data": {
           "enable_camera": "Camera",
           "enable_lock_1": "Lock 1 and Door release",
@@ -71,6 +72,16 @@
           "password": "Password",
           "country_code": "Country calling code"
         }
+      },
+      "link_account": {
+        "title": "Link NeoLight account",
+        "description": "Optional advanced setup. Paste a profile from your own app installation, then sign in to enable calls and door controls. Local video keeps working if you skip this step.",
+        "data": {
+          "app_profile": "App profile JSON",
+          "email": "NeoLight email",
+          "password": "Password",
+          "country_code": "Country calling code"
+        }
       }
     },
     "error": {
@@ -83,14 +94,15 @@
       "invalid_call_control_port": "Set the native call control port to enable automatic hangup",
       "doorbell_required": "Enable doorbell events before automatic opening",
       "invalid_auto_unlock_relay": "Enable the selected door control before automatic opening",
-      "invalid_bridge_health_url": "Enter an HTTP(S) bridge health URL"
+      "invalid_bridge_health_url": "Enter an HTTP(S) bridge health URL",
+      "invalid_profile": "App profile JSON is missing required fields or is malformed"
     }
   },
   "config": {
     "step": {
       "user": {
         "title": "Connect NeoLight monitor",
-        "description": "The stream ID is optional. A camera is created when it is provided; live frames still depend on the monitor's stream state.",
+        "description": "Enter the monitor address. The stream UUID is optional if you will provide a camera RTSP URL on the next screen or later in Configure.",
         "data": {
           "host": "Monitor IP address",
           "stream_id": "RTSP stream UUID",
@@ -98,9 +110,24 @@
           "rtsp_password": "RTSP password"
         }
       },
+      "connection": {
+        "title": "Choose how to connect",
+        "description": "Start with the local monitor. Cloud calls and door controls can be linked later in Configure.",
+        "menu_options": {
+          "local": "Local monitor and camera",
+          "cloud": "Link NeoLight account now"
+        }
+      },
+      "local": {
+        "title": "Local camera",
+        "description": "Optional: enter a shared RTSP bridge URL. If you already entered a stream UUID, you can leave this empty. You can add or change the camera URL later in Configure.",
+        "data": {
+          "restream_url": "Camera RTSP URL"
+        }
+      },
       "cloud": {
         "title": "NeoLight app and media",
-        "description": "Paste a private app profile for cloud calls and door release. Leave it empty for a local-only camera. Account credentials and app profile stay in Home Assistant private storage.",
+        "description": "Advanced setup: use a profile from your own app installation for cloud calls and door release. Account credentials and app profile stay in Home Assistant private storage.",
         "data": {
           "app_profile": "App profile JSON",
           "email": "NeoLight email",

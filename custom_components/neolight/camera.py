@@ -21,9 +21,11 @@ async def async_setup_entry(
     runtime = hass.data[DOMAIN][entry.entry_id]
     if not entry.options.get("enable_camera", True):
         return
-    if stream_id := runtime.vendor.get("stream_id") or entry.data.get(CONF_STREAM_ID):
+    stream_id = runtime.vendor.get("stream_id") or entry.data.get(CONF_STREAM_ID)
+    restream_url = runtime.vendor.get("restream_url")
+    if stream_id or restream_url:
         client = runtime.monitor
-        source = runtime.vendor.get("restream_url") or client.rtsp_url(
+        source = restream_url or client.rtsp_url(
             stream_id,
             runtime.vendor.get(CONF_RTSP_USER, entry.data.get(CONF_RTSP_USER, "")),
             runtime.vendor.get(CONF_RTSP_PASSWORD, entry.data.get(CONF_RTSP_PASSWORD, "")),

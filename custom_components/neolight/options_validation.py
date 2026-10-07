@@ -12,7 +12,7 @@ def validate_option_section(section: str, current: dict[str, Any], values: dict[
     updates = dict(values)
     combined = {**current, **updates}
     if section == "entrances":
-        if combined["route_video_on_ring"] and not combined["call_video_channel"]:
+        if combined.get("route_video_on_ring") and not combined.get("call_video_channel"):
             raise ValueError("invalid_call_video_channel")
         if combined.get("auto_unlock_on_ring") and not combined.get(
                 f"enable_{combined.get('auto_unlock_relay', 'lock_1')}",

@@ -46,6 +46,10 @@ class NeoLightChannelSelect(CoordinatorEntity, SelectEntity):
             configuration_url=f"http://{host}/",
         )
 
+    @property
+    def available(self) -> bool:
+        return bool(super().available and self.coordinator.data.cloud_online)
+
     def _channels(self) -> tuple[dict[str, int], int | None]:
         state = self.coordinator.data
         profile = PanelProfile.from_schema(state.schema)

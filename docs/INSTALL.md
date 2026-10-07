@@ -11,12 +11,17 @@ Use [HACS custom repository installation](HACS.md), or copy
 `custom_components` folder, then restart Home Assistant. In
 **Settings → Devices & services → Add integration**, select **NeoLight**.
 
-Enter the monitor IP, the DOOR MainStream UUID, and its RTSP credentials. The
-stream UUID is the identifier between `/` and `-MainStream` in a working
-monitor RTSP URL. The next screen accepts an optional private app profile and
-NeoLight account credentials. Leave the profile and account blank for a
-local-only camera setup. For cloud control, use your own paired account and a
-profile with this shape:
+Enter the monitor IP and, if known, the DOOR MainStream UUID and RTSP
+credentials. The stream UUID is the identifier between `/` and `-MainStream`
+in a working monitor RTSP URL. Choose **Local monitor and camera** to finish
+without an app profile; an optional RTSP URL from a shared video bridge can be
+entered on the next screen. At least one stream UUID or RTSP URL is required
+for a camera entity. If neither is available yet, add the monitor now and set
+the camera source later under **Configure → Advanced media**.
+
+Choose **Link NeoLight account now** for cloud calls and door controls, or
+select **Configure → Link NeoLight account** after local setup. This advanced
+path requires a profile from your own paired app installation, with this shape:
 
 ```json
 {
@@ -40,7 +45,14 @@ requests; they are not the monitor's web password. This alpha does not yet
 extract a profile automatically. Keep the profile private. The UI checks the
 login and that the selected monitor belongs to the account. Runtime files are
 written under `/config/neolight` with restricted permissions. Do not commit
-that directory.
+that directory. The account path is optional; the local camera does not need
+it.
+
+If the NeoLight cloud is unavailable during a later HA restart, the LAN
+monitor and configured RTSP camera still load. Cloud door and video-input
+controls show unavailable until the account and device respond again. HA keeps
+the last schema in private storage for the same paired monitor so these
+entities can return without being recreated.
 
 In the integration's **Configure** menu, use **Entrances and video** to choose
 the camera and relay entities, **Calls** for the doorbell event,

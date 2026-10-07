@@ -75,6 +75,10 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
         await super().async_added_to_hass()
         await self._video_router.resume()
 
+    @property
+    def available(self) -> bool:
+        return bool(super().available and self.coordinator.data.cloud_online)
+
     def _handle_coordinator_update(self) -> None:
         state = self.coordinator.data
         raw = state.dps.get("185") if state else None

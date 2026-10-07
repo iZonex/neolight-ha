@@ -21,6 +21,30 @@ from .profile import ha_static_fields, parse_app_profile
 from .settings import load_vendor
 
 
+async def authenticate_app_profile(
+    hass, raw_profile: str, email: str, password: str, country_code: str,
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """Validate account access to the paired monitor before saving secrets."""
+    vendor = parse_app_profile(raw_profile)
+    email = email.strip()
+    country_code = country_code.strip()
+    if not email or not password or not country_code.isdigit():
+        raise ValueError("invalid_account")
+    vendor.update(email=email, password=password, country_code=country_code)
+    client = MobileApiClient(
+        async_get_clientsession(hass), vendor["api_host"],
+        ha_static_fields(vendor["static_fields"]), vendor["signing_key"],
+        email=email, password=password, country_code=country_code,
+    )
+    login_result = await client.login()
+    await client.read_device(vendor["paired_device_id"])
+    if not all(login_result.get(key) for key in ("sid", "ecode", "partnerIdentity")):
+        raise MobileApiError("Login lacks media session fields")
+    vendor["sid"] = client.sid
+    session = {key: login_result[key] for key in ("sid", "ecode", "partnerIdentity")}
+    return vendor, session
+
+
 class NeoLightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Add a monitor using its LAN address."""
 
@@ -70,7 +94,7 @@ class NeoLightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_RTSP_USER: user_input.get(CONF_RTSP_USER, ""),
                         CONF_RTSP_PASSWORD: user_input.get(CONF_RTSP_PASSWORD, ""),
                     }
-                    return await self.async_step_cloud()
+                    return await self.async_step_connection()
         schema = vol.Schema({
             vol.Required(CONF_HOST): str,
             vol.Optional(CONF_STREAM_ID, default=""): str,
@@ -81,72 +105,84 @@ class NeoLightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         })
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 
+    async def async_step_connection(self, user_input: dict[str, Any] | None = None):
+        """Let a new owner start locally without an APK-derived app profile."""
+        return self.async_show_menu(step_id="connection", menu_options=["local", "cloud"])
+
+    def _vendor(self, restream_url: str) -> dict[str, Any]:
+        return {
+            "monitor_host": self._local_data[CONF_HOST],
+            "stream_id": self._local_data[CONF_STREAM_ID],
+            "rtsp_user": self._local_data[CONF_RTSP_USER],
+            "rtsp_password": self._local_data[CONF_RTSP_PASSWORD],
+            "restream_url": restream_url,
+        }
+
+    def _create_monitor_entry(
+        self, vendor: dict[str, Any], initial_session: dict[str, str] | None = None,
+    ):
+        cloud = "api_host" in vendor
+        return self.async_create_entry(
+            title=f"NeoLight {self._local_data[CONF_HOST]}",
+            data={**self._local_data, "vendor": vendor,
+                  "initial_session": initial_session or {}},
+            options={
+                "enable_camera": True,
+                "enable_doorbell": cloud,
+                "enable_lock_1": cloud,
+                "enable_lock_2": False,
+                "preferred_video_channel": 0,
+                "homekit_ring_url": "",
+                "auto_unlock_on_ring": False,
+                "auto_unlock_test_once": False,
+            },
+        )
+
+    async def async_step_local(self, user_input: dict[str, Any] | None = None):
+        """Finish setup with local access; cloud linking remains available later."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            restream_url = user_input.get("restream_url", "").strip()
+            if restream_url and not restream_url.startswith(("rtsp://", "rtsps://")):
+                errors["base"] = "invalid_stream_url"
+            else:
+                return self._create_monitor_entry(self._vendor(restream_url))
+        return self.async_show_form(
+            step_id="local",
+            data_schema=vol.Schema({vol.Optional("restream_url", default=""): str}),
+            errors=errors,
+        )
+
     async def async_step_cloud(self, user_input: dict[str, Any] | None = None):
-        """Accept an app profile and account, or create a local-only monitor."""
+        """Link the account with an owner-supplied app profile."""
         errors: dict[str, str] = {}
         if user_input is not None:
             raw_profile = user_input.get("app_profile", "").strip()
             restream = user_input.get("restream_url", "").strip()
             if restream and not restream.startswith(("rtsp://", "rtsps://")):
                 errors["base"] = "invalid_stream_url"
-            vendor: dict[str, Any] = {
-                "monitor_host": self._local_data[CONF_HOST],
-                "stream_id": self._local_data[CONF_STREAM_ID],
-                "rtsp_user": self._local_data[CONF_RTSP_USER],
-                "rtsp_password": self._local_data[CONF_RTSP_PASSWORD],
-                "restream_url": restream,
-            }
+            vendor = self._vendor(restream)
             initial_session: dict[str, str] = {}
-            if raw_profile and not errors:
+            if not raw_profile:
+                errors["base"] = "invalid_profile"
+            if not errors:
                 try:
-                    vendor.update(parse_app_profile(raw_profile))
-                    email = user_input.get("email", "").strip()
-                    password = user_input.get("password", "")
-                    country = user_input.get("country_code", "380").strip()
-                    if not email or not password or not country.isdigit():
-                        raise ValueError("invalid_account")
-                    vendor.update(email=email, password=password, country_code=country)
-                    client = MobileApiClient(
-                        async_get_clientsession(self.hass), vendor["api_host"],
-                        ha_static_fields(vendor["static_fields"]), vendor["signing_key"],
-                        email=email, password=password, country_code=country,
+                    linked_vendor, initial_session = await authenticate_app_profile(
+                        self.hass, raw_profile, user_input.get("email", ""),
+                        user_input.get("password", ""),
+                        user_input.get("country_code", "380"),
                     )
-                    login_result = await client.login()
-                    await client.read_device(vendor["paired_device_id"])
-                    if not all(login_result.get(key) for key in ("sid", "ecode", "partnerIdentity")):
-                        raise MobileApiError("Login lacks media session fields")
-                    vendor["sid"] = client.sid
-                    initial_session = {
-                        key: login_result[key]
-                        for key in ("sid", "ecode", "partnerIdentity")
-                        if key in login_result
-                    }
+                    vendor.update(linked_vendor)
                 except ValueError as error:
                     errors["base"] = str(error)
                 except (MobileApiError, ClientError, TimeoutError):
                     errors["base"] = "cannot_auth"
-            elif any(user_input.get(key) for key in ("email", "password")):
-                errors["base"] = "invalid_profile"
             if not errors:
-                return self.async_create_entry(
-                    title=f"NeoLight {self._local_data[CONF_HOST]}",
-                    data={**self._local_data, "vendor": vendor,
-                          "initial_session": initial_session},
-                    options={
-                        "enable_camera": True,
-                        "enable_doorbell": bool(raw_profile),
-                        "enable_lock_1": bool(raw_profile),
-                        "enable_lock_2": False,
-                        "preferred_video_channel": 0,
-                        "homekit_ring_url": "",
-                        "auto_unlock_on_ring": False,
-                        "auto_unlock_test_once": False,
-                    },
-                )
+                return self._create_monitor_entry(vendor, initial_session)
         schema = vol.Schema({
-            vol.Optional("app_profile", default=""): str,
-            vol.Optional("email", default=""): str,
-            vol.Optional("password", default=""): TextSelector(
+            vol.Required("app_profile"): str,
+            vol.Required("email"): str,
+            vol.Required("password"): TextSelector(
                 TextSelectorConfig(type=TextSelectorType.PASSWORD)
             ),
             vol.Optional("country_code", default="380"): str,
@@ -164,9 +200,14 @@ class NeoLightOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         """Choose one focused settings page."""
         current = await self.hass.async_add_executor_job(load_vendor, self._entry)
-        pages = ["entrances", "calls", "automatic_opening", "apple_home", "advanced"]
+        pages = ["entrances", "advanced"]
         if "api_host" in current:
-            pages.append("account")
+            pages = [
+                "entrances", "calls", "automatic_opening", "apple_home",
+                "advanced", "account",
+            ]
+        else:
+            pages.append("link_account")
         return self.async_show_menu(step_id="init", menu_options=pages)
 
     async def _async_section(self, step_id: str, user_input: dict[str, Any] | None):
@@ -185,7 +226,15 @@ class NeoLightOptionsFlow(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
-                updates = validate_option_section(step_id, current, user_input)
+                if step_id == "link_account":
+                    updates, _ = await authenticate_app_profile(
+                        self.hass, user_input.get("app_profile", ""),
+                        user_input.get("email", ""), user_input.get("password", ""),
+                        user_input.get("country_code", "380"),
+                    )
+                    updates.update(enable_doorbell=True, enable_lock_1=True)
+                else:
+                    updates = validate_option_section(step_id, current, user_input)
                 if step_id == "account":
                     email = updates["email"]
                     password = updates["password"]
@@ -230,10 +279,17 @@ class NeoLightOptionsFlow(config_entries.OptionsFlow):
     async def async_step_account(self, user_input: dict[str, Any] | None = None):
         return await self._async_section("account", user_input)
 
+    async def async_step_link_account(self, user_input: dict[str, Any] | None = None):
+        return await self._async_section("link_account", user_input)
+
 
 def option_section_schema(section: str, current: dict[str, Any]) -> vol.Schema:
     """Fields for one settings page, with persisted values as defaults."""
     if section == "entrances":
+        if "api_host" not in current:
+            return vol.Schema({
+                vol.Required("enable_camera", default=current.get("enable_camera", True)): bool,
+            })
         channel_names = current.get("_channel_labels")
         if channel_names:
             preferred_choices = {0: "0: Keep monitor selection"} | {
@@ -296,5 +352,14 @@ def option_section_schema(section: str, current: dict[str, Any]) -> vol.Schema:
                 TextSelectorConfig(type=TextSelectorType.PASSWORD)
             ),
             vol.Required("country_code", default=current.get("country_code", "380")): str,
+        })
+    if section == "link_account":
+        return vol.Schema({
+            vol.Required("app_profile"): str,
+            vol.Required("email"): str,
+            vol.Required("password"): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.PASSWORD)
+            ),
+            vol.Required("country_code", default="380"): str,
         })
     raise ValueError("unknown_options_page")

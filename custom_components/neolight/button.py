@@ -12,6 +12,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .call_control import CallControlError, reset_call
@@ -73,12 +74,13 @@ class NeoLightEndCallButton(ButtonEntity):
             raise HomeAssistantError(str(error)) from error
 
 
-class NeoLightRelayButton(ButtonEntity):
+class NeoLightRelayButton(CoordinatorEntity, ButtonEntity):
     """Publish the exact DP used by a dashboard lock button."""
 
     _attr_has_entity_name = True
 
     def __init__(self, entry: ConfigEntry, runtime, control: str, name: str) -> None:
+        super().__init__(runtime.coordinator)
         host = entry.data["host"]
         self._runtime = runtime
         self._control = control
@@ -93,6 +95,10 @@ class NeoLightRelayButton(ButtonEntity):
         )
         self._press_lock = asyncio.Lock()
         self._last_press = 0.0
+
+    @property
+    def available(self) -> bool:
+        return bool(super().available and self.coordinator.data.cloud_online)
 
     async def async_press(self) -> None:
         """Read the current DP, then send one release command through the app API."""

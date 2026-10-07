@@ -12,6 +12,12 @@ SPEC.loader.exec_module(MODULE)
 
 
 class OptionsValidationTests(unittest.TestCase):
+    def test_local_camera_settings_do_not_require_cloud_fields(self):
+        self.assertEqual(
+            MODULE.validate_option_section("entrances", {}, {"enable_camera": True}),
+            {"enable_camera": True},
+        )
+
     def test_apple_home_page_leaves_automatic_opening_alone(self):
         saved = {"auto_unlock_on_ring": True, "auto_unlock_relay": "lock_1"}
         update = MODULE.validate_option_section(
