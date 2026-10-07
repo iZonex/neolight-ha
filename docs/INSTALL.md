@@ -70,6 +70,11 @@ is running on the same host and Home Assistant uses host networking. Set
 the monitor returns to a blank or different input after a media reconnect.
 `0` leaves the monitor's current selection alone. The tested ALPHA Hybrid
 uses channel `1` for DOOR; confirm the mapping on other installations.
+When the shared video bridge stays on its backup picture for a minute, HA
+reselects a configured preferred channel to restore the monitor's RTSP video.
+It does not run while the native bridge reports ringing or talking, and it
+limits retries to once per five minutes. Setting the preferred channel to `0`
+disables this recovery action.
 The **Video input** entity lets you select any input exposed by the monitor.
 **Call video channel** refers to the monitor's channel list (`DOOR`, `CAM2`,
 etc.). On the tested installation, the entrance camera and Vizit video are

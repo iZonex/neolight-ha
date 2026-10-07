@@ -20,9 +20,11 @@ from .call_control import read_call_status
 from .const import DOMAIN, PLATFORMS, POLL_INTERVAL
 from .mobile_api import MobileApiClient, MobileApiError
 from .profile import ha_static_fields
+from .panel_protocol import PanelProfile
 from .schema_cache import load_cached_schema
 from .settings import (legacy_vendor_path, load_vendor, migrate_legacy_state,
                        runtime_directory, write_private_json)
+from .video_recovery import VideoRecovery
 
 _LOGGER = logging.getLogger(__name__)
 CONFIG_SCHEMA = vol.Schema({vol.Optional(DOMAIN): vol.Schema({})}, extra=vol.ALLOW_EXTRA)
@@ -109,6 +111,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     last_schema = await hass.async_add_executor_job(
         load_cached_schema, schema_path, vendor.get("paired_device_id")
     )
+    video_recovery = VideoRecovery()
 
     async def read_video_health() -> dict | None:
         url = vendor.get("bridge_health_url")
@@ -161,6 +164,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             last_schema = schema
         else:
             schema = last_schema
+        if (cloud_online and isinstance(cloud_result, dict)
+                and video_recovery.should_reselect(
+                    video_health if isinstance(video_health, dict) else None,
+                    entry.options.get("preferred_video_channel", 0),
+                    native_call.get("state") if isinstance(native_call, dict) else None,
+                )):
+            try:
+                profile = PanelProfile.from_schema(schema, required=("channel",))
+                raw = cloud_result["dps"][str(profile.dp_ids["channel"])]
+                command = profile.channel_command(
+                    raw, entry.options["preferred_video_channel"]
+                )
+                await mobile.publish_dps(vendor["paired_device_id"], command)
+                _LOGGER.info("NeoLight reselected the preferred video channel after RTSP loss")
+            except Exception as error:
+                _LOGGER.warning(
+                    "NeoLight video channel recovery failed: %s", type(error).__name__
+                )
         return MonitorState(
             online=local_online,
             cloud_online=cloud_online,
