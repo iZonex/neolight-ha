@@ -58,10 +58,7 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
         )
         initial_raw = (runtime.coordinator.data.dps or {}).get("185") if runtime.coordinator.data else None
         self._ring_deduplicator = RingDeduplicator(initial_raw)
-        self._episodes = RingEpisodeDetector(
-            runtime.coordinator.data.call_status if runtime.coordinator.data else None,
-            time.monotonic(),
-        )
+        self._episodes = RingEpisodeDetector()
         self._release_gate = ReleaseEpisodeGate()
         self._pending_unlock: asyncio.Task | None = None
         self._test_consumed = False
@@ -91,9 +88,7 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
                          "auto_unlock_test_deadline": 0},
             )
         fresh_snapshot = self._ring_deduplicator.observe(raw)
-        episode = self._episodes.observe(
-            fresh_snapshot, state.call_status if state else None, time.monotonic()
-        )
+        episode = self._episodes.observe(fresh_snapshot, time.monotonic())
         if episode is not None:
             _LOGGER.info("NeoLight fresh call episode %s detected from %s",
                          episode.number, episode.source)

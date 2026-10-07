@@ -21,9 +21,10 @@ command acknowledged by the account API, and the owner confirmed that the
 entrance opened. Persistent mode is available but off by default; missed rings
 and other wiring modes still need testing.
 
-The ring detector now merges snapshot and call-status reports into one call
-episode, including delayed status updates and active calls across an HA restart.
-The ordering is covered by offline tests and installed on the owner's HA.
+The ring detector accepts only fresh timestamped snapshots. A later read-only
+check showed the app `callStatus=0` persisting for hours, so it cannot establish
+a new entrance call or suppress a fresh snapshot. The duplicate window is
+covered by offline tests.
 A real multi-call trace is still needed to establish the shortest safe interval
 between separate calls and to measure missed calls.
 The HA ring event now records its signal source and an anonymized alarm hash;
