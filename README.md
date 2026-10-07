@@ -50,7 +50,7 @@ Apple Home. See [HACS installation details](docs/HACS.md) or the
 | Ring event | Experimental cloud event; the tested alarm contains a snapshot timestamp, but polling may miss a call |
 | Automatic unlock | Configurable in HA; one supervised Vizit call physically opened Lock 1 |
 | Apple Home release | Paired, but the physical relay action has not yet been verified |
-| Incoming-call answer/hangup in HA | Not implemented; Apple Home Live talk starts an on-demand media session |
+| Incoming-call answer/hangup in HA | Controls are available for fresh native call signals; physical behavior on the Vizit adapter still needs verification |
 
 The current media stack supports one configured monitor per Home Assistant
 installation. A local-only camera can be configured without an app profile.
