@@ -105,7 +105,7 @@ using the monitor RTSP source or the native backup. It does not judge image
 content. **App call signal** reports the cloud API's call flag; it does not
 measure whether the analog handset is physically on-hook.
 
-Set **Native bridge call control port** to `38557` in **Configure → Calls**
+Set **Native bridge call control port** to `38557` in **Configure → Advanced media**
 when the native media bridge runs on the same host network. HA then shows a
 **Native call** diagnostic and enables **Answer call** and **Hang up call** only
 when the bridge has received a fresh, controllable MQTT call. **End call**
@@ -146,6 +146,10 @@ HomeKit Bridge; its physical action from Apple Home remains unverified.
   It also reports the APK's `callStatus` for diagnostics, but that flag may stay
   active for hours and cannot establish a new entrance call. Very short calls
   can still end between polls; a missed call cannot trigger automatic release.
+- The Doorbell event's `last_auto_unlock_status` attribute reports the last
+  attempt. `command_acknowledged` means the API accepted a relay command; it
+  does not prove the physical door opened. The attributes clear after an HA
+  restart.
 - Apple Home Talk sends a Tuya call `accept` for a recent, supported video
   call and `stop` when Talk ends. The live ALPHA Hybrid / Vizit call type and
   physical answer/hangup behavior still require a call test. An ordinary

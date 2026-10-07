@@ -48,6 +48,7 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
         super().__init__(runtime.coordinator)
         self._entry = entry
         host = entry.data["host"]
+        self._status_key = f"last_auto_unlock:{host}"
         self._attr_unique_id = f"{host}_doorbell"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, host)},
@@ -62,6 +63,7 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
         self._release_gate = ReleaseEpisodeGate()
         self._pending_unlock: asyncio.Task | None = None
         self._test_consumed = False
+        self._last_auto_unlock: dict[str, str | int] = {}
         self._video_router = VideoRouter(
             runtime, state_dir / "video_route.json",
             entry.options.get("call_video_channel", 0),
@@ -70,11 +72,26 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
+        self._last_auto_unlock = dict(self.hass.data[DOMAIN].get(self._status_key, {}))
         await self._video_router.resume()
 
     @property
     def available(self) -> bool:
         return bool(super().available and self.coordinator.data.cloud_online)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str | int]:
+        """Expose the API result without claiming that the physical door moved."""
+        return dict(self._last_auto_unlock)
+
+    def _set_auto_unlock_status(self, status: str, relay: str) -> None:
+        self._last_auto_unlock = {
+            "last_auto_unlock_status": status,
+            "last_auto_unlock_relay": relay,
+            "last_auto_unlock_at": int(time.time()),
+        }
+        self.hass.data[DOMAIN][self._status_key] = dict(self._last_auto_unlock)
+        self.async_write_ha_state()
 
     def _handle_coordinator_update(self) -> None:
         state = self.coordinator.data
@@ -115,6 +132,9 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
                     if mode != "once" or not self._test_consumed:
                         self._test_consumed = mode == "once"
                         _LOGGER.info("NeoLight auto unlock requested for fresh ring (%s)", mode)
+                        self._set_auto_unlock_status(
+                            "scheduled", self._entry.options.get("auto_unlock_relay", "lock_1")
+                        )
                         self._pending_unlock = self.hass.async_create_task(
                             self._auto_unlock(captured_at, mode)
                         )
@@ -148,16 +168,18 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
 
     async def _auto_unlock(self, captured_at: int, mode: str) -> None:
         """Use the same validated relay button as a manual HA press."""
+        relay = self._entry.options.get("auto_unlock_relay", "lock_1")
         try:
             await asyncio.sleep(self._entry.options.get("auto_unlock_delay", 0))
             if release_mode(
                 self._entry.options, captured_at, time.time(), AUTO_UNLOCK_SAFETY_HOLD
             ) != mode:
                 _LOGGER.warning("NeoLight auto unlock skipped: ring or arming expired")
+                self._set_auto_unlock_status("expired", relay)
                 return
-            relay = self._entry.options.get("auto_unlock_relay", "lock_1")
             if relay not in {"lock_1", "lock_2"} or (mode == "once" and relay != "lock_1"):
                 _LOGGER.error("NeoLight auto unlock relay is invalid")
+                self._set_auto_unlock_status("invalid_relay", relay)
                 return
             registry = entity_registry.async_get(self.hass)
             unique_id = f"{self._entry.data['host']}_{relay}"
@@ -166,11 +188,13 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
                               and entity.unique_id == unique_id), None)
             if not button_id:
                 _LOGGER.error("NeoLight auto unlock button is missing")
+                self._set_auto_unlock_status("control_unavailable", relay)
                 return
             await self.hass.services.async_call(
                 "button", "press", {"entity_id": button_id}, blocking=True
             )
             _LOGGER.info("NeoLight auto unlock command acknowledged for %s", relay)
+            self._set_auto_unlock_status("command_acknowledged", relay)
             if self._entry.options.get("hangup_after_auto_unlock"):
                 await asyncio.sleep(2)
                 try:
@@ -179,6 +203,7 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
                 except CallControlError as error:
                     _LOGGER.warning("NeoLight auto unlock succeeded but call hangup failed: %s", error)
         except Exception:
+            self._set_auto_unlock_status("command_failed", relay)
             _LOGGER.exception("NeoLight auto unlock failed")
         finally:
             if mode == "once":
