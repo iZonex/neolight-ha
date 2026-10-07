@@ -35,6 +35,13 @@ Set **Native bridge call control port** to `38557` in the HA integration to
 expose an **End call** button. **End the call after automatic door release**
 uses the same command two seconds after the relay acknowledgement. This
 requires HA and the native bridge to share the host network namespace.
+The same socket responds to read-only `status` with `idle`, `ringing`, or
+`answered`, plus whether P2P Talk is active. A fresh supported MQTT call can
+be `answer`ed and an answered call can be `hangup`ped. Replayed call IDs,
+timestamped stale calls, and remote `cancel`/`stop` events are handled in the
+native call tracker. The call identifier is never returned to HA. On the
+tested analog adapter the answer/hangup commands still need a real incoming
+call check; the controls remain unavailable while no such call is active.
 
 The AV mux exposes read-only output progress at
 `http://127.0.0.1:38558/health`. The response contains only status, source,

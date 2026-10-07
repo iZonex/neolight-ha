@@ -16,6 +16,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .client import MonitorClient, MonitorState
+from .call_control import read_call_status
 from .const import DOMAIN, PLATFORMS, POLL_INTERVAL
 from .mobile_api import MobileApiClient, MobileApiError
 from .profile import ha_static_fields
@@ -127,12 +128,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def fetch_state() -> MonitorState:
         nonlocal last_schema
-        local_result, cloud_result, call_result, video_health = await asyncio.gather(
+        local_result, cloud_result, call_result, video_health, native_call = await asyncio.gather(
             client.probe(),
             mobile.read_device(vendor["paired_device_id"]) if mobile else asyncio.sleep(0, result=None),
             mobile.request("m.ipc.doorbell.call.status.get", "1.0",
                            {"devId": vendor["paired_device_id"]}) if mobile else asyncio.sleep(0, result=None),
             read_video_health(),
+            read_call_status(entry.options.get("native_call_control_port", 0)),
             return_exceptions=True,
         )
         local_online = not isinstance(local_result, Exception)
@@ -168,6 +170,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                          if isinstance(call_result, dict)
                          and type(call_result.get("callStatus")) is int else None),
             video_health=video_health if isinstance(video_health, dict) else None,
+            native_call=native_call if isinstance(native_call, dict) else None,
         )
 
     coordinator: DataUpdateCoordinator[MonitorState] = DataUpdateCoordinator(

@@ -2,7 +2,7 @@
 
 import unittest
 
-from call_signaling import call_command, incoming_call, summarize_message
+from call_signaling import call_command, ended_call_type, incoming_call, summarize_message
 
 
 class CallSignalingTests(unittest.TestCase):
@@ -66,6 +66,21 @@ class CallSignalingTests(unittest.TestCase):
         self.assertIsNone(incoming_call(push, "other-device"))
         self.assertIsNone(incoming_call({"protocol": 43, "data": {
             **push["data"], "etype": "doorbell"}}, "device"))
+
+    def test_device_cancel_ends_only_its_own_call(self):
+        cancel = {"protocol": 308, "data": {"type": "ac_doorbell",
+                  "data": {"devId": "device", "event": "cancel"}}}
+        self.assertEqual(ended_call_type(cancel, "device"), "ac_doorbell")
+        self.assertIsNone(ended_call_type(cancel, "other-device"))
+        self.assertIsNone(ended_call_type({"protocol": 308, "data": {
+            "type": "ac_doorbell", "data": {"devId": "device", "event": "accept"}}}, "device"))
+
+    def test_timestamped_call_rejects_replayed_and_future_messages(self):
+        push = {"protocol": 43, "data": {"devId": "device", "etype": "ac_doorbell",
+                                         "edata": "message", "time": 1_000}}
+        self.assertIsNotNone(incoming_call(push, "device", now_wall=1_020))
+        self.assertIsNone(incoming_call(push, "device", now_wall=1_061))
+        self.assertIsNone(incoming_call(push, "device", now_wall=980))
 
 
 if __name__ == "__main__":
