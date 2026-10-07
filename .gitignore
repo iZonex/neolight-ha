@@ -17,6 +17,7 @@
 !/scrypted-neolight/
 !/docs/
 !/tests/
+!/tools/
 
 # Private runtime data and generated artifacts inside allowed directories.
 **/.DS_Store

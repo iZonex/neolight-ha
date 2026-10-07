@@ -42,7 +42,8 @@ path requires a profile from your own paired app installation, with this shape:
 
 The profile values come from the NeoLight Android app and its signed API
 requests; they are not the monitor's web password. This alpha does not yet
-extract a profile automatically. Keep the profile private. The UI checks the
+extract a profile inside HA. The [local profile helper](PROFILE_IMPORT.md)
+builds and validates the JSON from your own Android app. Keep the profile private. The UI checks the
 login and that the selected monitor belongs to the account. Runtime files are
 written under `/config/neolight` with restricted permissions. Do not commit
 that directory. The account path is optional; the local camera does not need
