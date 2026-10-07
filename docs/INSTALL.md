@@ -47,6 +47,8 @@ login and that the selected monitor belongs to the account. Runtime files are
 written under `/config/neolight` with restricted permissions. Do not commit
 that directory. The account path is optional; the local camera does not need
 it.
+For an existing manual setup with private files beside the integration code,
+follow the [migration steps](HACS.md) before HACS replaces that directory.
 
 If the NeoLight cloud is unavailable during a later HA restart, the LAN
 monitor and configured RTSP camera still load. Cloud door and video-input

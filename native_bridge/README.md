@@ -42,7 +42,7 @@ publisher presence, and seconds since video bytes last advanced. It is bound
 to loopback and contains no account or stream credentials.
 
 `observe_call_signaling.py` is a read-only diagnostic for the next ordinary
-call. Mount the HA integration's private config directory at `/state` and run
+call. Mount `/config/neolight` from the HA configuration at `/state` and run
 it in a separate short-lived container using the native bridge image. It reuses
 HA's saved session without logging in, subscribes with a distinct MQTT client
 ID, and prints only protocol numbers, call event labels, and hashed call IDs.
@@ -55,5 +55,6 @@ the user starts Talk during that call. It skips the SDK's unsupported
 The HA integration also exposes read-only `Doorbell 1–4 ringing` diagnostic
 entities when the live schema advertises a Ring/Normal enum for those inputs.
 The HA ring entity additionally polls the APK's
-`m.ipc.doorbell.call.status.get` endpoint and treats a transition into
-`callStatus=0` as a fresh call when the snapshot alarm is absent.
+`m.ipc.doorbell.call.status.get` endpoint for diagnostics. Fresh rings require
+a new timestamped snapshot alarm; `callStatus=0` can remain active after a
+call ends and is not used to trigger a ring.

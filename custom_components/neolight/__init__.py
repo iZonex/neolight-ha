@@ -20,7 +20,8 @@ from .const import DOMAIN, PLATFORMS, POLL_INTERVAL
 from .mobile_api import MobileApiClient, MobileApiError
 from .profile import ha_static_fields
 from .schema_cache import load_cached_schema
-from .settings import legacy_vendor_path, load_vendor, runtime_directory, write_private_json
+from .settings import (legacy_vendor_path, load_vendor, migrate_legacy_state,
+                       runtime_directory, write_private_json)
 
 _LOGGER = logging.getLogger(__name__)
 CONFIG_SCHEMA = vol.Schema({vol.Optional(DOMAIN): vol.Schema({})}, extra=vol.ALLOW_EXTRA)
@@ -39,7 +40,9 @@ class NeoLightRuntime:
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Allow a local YAML entry to import the private paired-device config."""
     if DOMAIN in config:
-        path = legacy_vendor_path()
+        path = Path(hass.config.path("neolight")) / "vendor_config.json"
+        if not path.exists():
+            path = legacy_vendor_path()
         if not path.exists():
             _LOGGER.error("NeoLight vendor_config.json is missing")
             return False
@@ -63,8 +66,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up the monitor and the autonomous app API client."""
     session = async_get_clientsession(hass)
     client = MonitorClient(session, entry.data["host"])
-    vendor = await hass.async_add_executor_job(load_vendor, entry)
     state_dir = runtime_directory(hass, entry)
+    await hass.async_add_executor_job(
+        migrate_legacy_state, legacy_vendor_path().parent, state_dir
+    )
+    vendor = await hass.async_add_executor_job(load_vendor, entry, state_dir)
     if vendor:
         await hass.async_add_executor_job(write_private_json, state_dir / "vendor_config.json", vendor)
     if "vendor" in entry.data:

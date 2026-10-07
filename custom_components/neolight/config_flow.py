@@ -18,7 +18,7 @@ from .mobile_api import MobileApiClient, MobileApiError
 from .options_validation import STREAM_ID_PATTERN, validate_option_section
 from .panel_protocol import PanelProfile, channel_labels
 from .profile import ha_static_fields, parse_app_profile
-from .settings import load_vendor
+from .settings import load_vendor, runtime_directory
 
 
 async def authenticate_app_profile(
@@ -199,7 +199,9 @@ class NeoLightOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         """Choose one focused settings page."""
-        current = await self.hass.async_add_executor_job(load_vendor, self._entry)
+        current = await self.hass.async_add_executor_job(
+            load_vendor, self._entry, runtime_directory(self.hass, self._entry)
+        )
         pages = ["entrances", "advanced"]
         if "api_host" in current:
             pages = [
@@ -211,7 +213,9 @@ class NeoLightOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_menu(step_id="init", menu_options=pages)
 
     async def _async_section(self, step_id: str, user_input: dict[str, Any] | None):
-        current = await self.hass.async_add_executor_job(load_vendor, self._entry)
+        current = await self.hass.async_add_executor_job(
+            load_vendor, self._entry, runtime_directory(self.hass, self._entry)
+        )
         if step_id == "entrances":
             runtime = getattr(self.hass, "data", {}).get(DOMAIN, {}).get(self._entry.entry_id)
             if runtime and runtime.coordinator.data:
