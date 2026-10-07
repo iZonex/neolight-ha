@@ -32,6 +32,13 @@ the read-only MQTT observer records the matching hash when the cloud publishes
 DP 185. These fields let a later ordinary call establish ordering without
 opening the door or collecting video/audio.
 
+On 2026-10-07 one ordinary Vizit call produced an MQTT protocol 43
+`ac_doorbell` notification and a fresh DP 185 snapshot. HA sent one Lock 1
+command, the account API acknowledged it, and the owner confirmed the entrance
+opened. The native bridge then completed its tested Talk → Stop recovery. No
+protocol 308 end event appeared in that call trace, so the bridge expires an
+unanswered notification rather than assuming that an end event will arrive.
+
 ## Before a stable release
 
 - Verify Apple Home release physically and expose clear command failures.

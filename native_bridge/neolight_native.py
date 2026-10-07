@@ -511,6 +511,7 @@ async def handle_call_control(reader: asyncio.StreamReader, writer: asyncio.Stre
                 await session.hangup_active_call()
                 session.send_control(0, 1)
                 await asyncio.sleep(0.2)
+                session.call.clear()
                 writer.write(b"ok\n")
                 LOGGER.info("Local call reset sequence completed")
             finally:
