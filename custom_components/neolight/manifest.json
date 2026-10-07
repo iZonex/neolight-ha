@@ -8,5 +8,5 @@
   "integration_type": "device",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/iZonex/neolight-ha/issues",
-  "version": "0.3.0a10"
+  "version": "0.3.0a11"
 }
