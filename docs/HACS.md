@@ -22,10 +22,29 @@ must already be installed. It does not install the integration automatically.
    later. Follow [installation](INSTALL.md) for the camera source and optional
    media stack.
 
-Existing manual installations should back up the HA configuration first. HACS
-manages the integration directory after installation. Do not place private
-runtime profiles or credentials under `custom_components/neolight`; the
-integration writes runtime files under `/config/neolight`.
+Existing manual installations should back up the HA configuration first. If
+`/config/custom_components/neolight/vendor_config.json` exists, copy it and
+any `runtime_session.json` or `video_route.json` into `/config/neolight`
+**before HACS replaces the integration folder**. From a shell inside the HA
+container:
+
+```sh
+mkdir -p /config/neolight && chmod 700 /config/neolight
+for name in vendor_config.json runtime_session.json video_route.json; do
+  source="/config/custom_components/neolight/$name"
+  target="/config/neolight/$name"
+  if [ -f "$source" ] && [ ! -e "$target" ]; then
+    cp "$source" "$target" && chmod 600 "$target"
+  fi
+done
+```
+
+Do not delete the old files until the upgraded integration and media bridge
+have been verified. The integration also copies legacy files automatically
+when it starts before HACS removes them. HACS manages the integration folder;
+new runtime settings live under `/config/neolight`. Older manually created
+media containers may still mount the legacy folder as `/state`; change that
+mount to `/config/neolight` on the HA host before removing old files.
 
 The bundled icon and logo are shown by Home Assistant 2026.3 and later.
 Older Home Assistant versions may show the default integration image. Other
