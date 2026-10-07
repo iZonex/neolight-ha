@@ -13,6 +13,11 @@ bridge carries live video and two-way audio.
 > monitors, firmware, and wiring need separate verification. Automatic unlock
 > is off by default and should be enabled only after a supervised physical test.
 
+Tested combination: ALPHA Hybrid indoor monitor firmware
+`V4.3.29.07.001(BW-HM-KE-2)`, NeoLight Android app 1.1.0, and one Vizit
+analog entrance adapter. The two analog video pictures on that installation
+both belong to monitor channel `DOOR`; the `CAM2` channel is separate.
+
 ## Install
 
 **[Open NeoLight in HACS](https://my.home-assistant.io/redirect/hacs_repository/?owner=iZonex&repository=neolight-ha&category=integration)**
@@ -25,8 +30,10 @@ bridge carries live video and two-way audio.
    published releases are alpha prereleases, which HACS may hide by default.
 3. Open [Add NeoLight integration](https://my.home-assistant.io/redirect/config_flow_start/?domain=neolight)
    or use **Settings → Devices & services → Add integration → NeoLight**.
-4. Enter the monitor and stream details. Read the [installation guide](docs/INSTALL.md)
-   for a local camera, cloud controls, media services, and Apple Home.
+4. Enter the monitor address and choose **Local monitor and camera**. Add a
+   stream UUID or RTSP URL for video. Cloud controls can be linked later with
+   an app profile from your own installation. Read the
+   [installation guide](docs/INSTALL.md) for media services and Apple Home.
 
 HACS installs only the Home Assistant component. The native media bridge,
 go2rtc, and Scrypted are separate services for live audio, talkback, and
@@ -37,7 +44,7 @@ Apple Home. See [HACS installation details](docs/HACS.md) or the
 
 | Feature | Current state |
 |---|---|
-| Door camera in Home Assistant | Available with a configured RTSP stream; live audio uses the optional media stack |
+| Door camera in Home Assistant | Available with a monitor stream UUID or a shared RTSP URL; live audio uses the optional media stack |
 | Door release | Home Assistant Lock 1 physically opened the tested Vizit entrance during an active call |
 | Apple Home doorbell | Live video and speech in both directions worked in the tested installation through Scrypted |
 | Ring event | Experimental cloud event; the tested alarm contains a snapshot timestamp, but polling may miss a call |
@@ -49,6 +56,8 @@ The current media stack supports one configured monitor per Home Assistant
 installation. A local-only camera can be configured without an app profile.
 Cloud controls require a private profile from your own NeoLight app
 installation. Private runtime settings are stored under `/config/neolight`.
+The local monitor and camera remain available during a cloud outage; cloud
+controls then report unavailable.
 
 ## Project layout
 
@@ -63,6 +72,7 @@ Read the [architecture and protocol notes](docs/ARCHITECTURE.md) for how the
 parts connect. Contributors adding another monitor or entrance panel should
 start with the [device research guide](docs/REVERSE_ENGINEERING.md) and
 [contributing notes](CONTRIBUTING.md). See the [roadmap](docs/ROADMAP.md),
+[UX and configuration design](docs/UX.md),
 [security policy](SECURITY.md), and [releases](https://github.com/iZonex/neolight-ha/releases).
 
 ## Relay safety

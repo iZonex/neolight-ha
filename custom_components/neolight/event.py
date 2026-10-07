@@ -1,6 +1,7 @@
 """Doorbell events reported by the paired NeoLight monitor."""
 
 import asyncio
+from hashlib import sha256
 import logging
 import time
 
@@ -16,8 +17,12 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import AUTO_UNLOCK_SAFETY_HOLD, DOMAIN
+from .call_control import CallControlError, reset_call
+from .call_state import ReleaseEpisodeGate, RingEpisodeDetector
 from .release_policy import release_mode
 from .ring_message import RingDeduplicator, doorbell_event
+from .settings import runtime_directory
+from .video_router import VideoRouter
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,7 +33,7 @@ async def async_setup_entry(
     """Expose the alarm_message event when the mobile API is available."""
     runtime = hass.data[DOMAIN][entry.entry_id]
     if runtime.mobile is not None and entry.options.get("enable_doorbell", True):
-        async_add_entities([NeoLightDoorbellEvent(runtime.coordinator, entry)])
+        async_add_entities([NeoLightDoorbellEvent(runtime, entry, runtime_directory(hass, entry))])
 
 
 class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
@@ -39,8 +44,8 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
     _attr_device_class = EventDeviceClass.DOORBELL
     _attr_event_types = ["ring"]
 
-    def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator)
+    def __init__(self, runtime, entry: ConfigEntry, state_dir) -> None:
+        super().__init__(runtime.coordinator)
         self._entry = entry
         host = entry.data["host"]
         self._attr_unique_id = f"{host}_doorbell"
@@ -51,10 +56,28 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
             model="ALPHA Hybrid",
             configuration_url=f"http://{host}/",
         )
-        initial_raw = (coordinator.data.dps or {}).get("185") if coordinator.data else None
+        initial_raw = (runtime.coordinator.data.dps or {}).get("185") if runtime.coordinator.data else None
         self._ring_deduplicator = RingDeduplicator(initial_raw)
+        self._episodes = RingEpisodeDetector(
+            runtime.coordinator.data.call_status if runtime.coordinator.data else None,
+            time.monotonic(),
+        )
+        self._release_gate = ReleaseEpisodeGate()
         self._pending_unlock: asyncio.Task | None = None
         self._test_consumed = False
+        self._video_router = VideoRouter(
+            runtime, state_dir / "video_route.json",
+            entry.options.get("call_video_channel", 0),
+            entry.options.get("call_video_hold_seconds", 90),
+        )
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        await self._video_router.resume()
+
+    @property
+    def available(self) -> bool:
+        return bool(super().available and self.coordinator.data.cloud_online)
 
     def _handle_coordinator_update(self) -> None:
         state = self.coordinator.data
@@ -67,21 +90,49 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
                 options={**self._entry.options, "auto_unlock_test_once": False,
                          "auto_unlock_test_deadline": 0},
             )
-        if self._ring_deduplicator.observe(raw):
-            self._trigger_event("ring")
-            self.hass.async_create_task(self._notify_homekit_doorbell())
+        fresh_snapshot = self._ring_deduplicator.observe(raw)
+        episode = self._episodes.observe(
+            fresh_snapshot, state.call_status if state else None, time.monotonic()
+        )
+        if episode is not None:
+            _LOGGER.info("NeoLight fresh call episode %s detected from %s",
+                         episode.number, episode.source)
+            details = {"source": episode.source, "episode": episode.number}
+            event = doorbell_event(raw) if fresh_snapshot else None
+            if event:
+                details["snapshot_captured_at"] = event[0]
+                details["alarm_hash"] = sha256(raw.encode()).hexdigest()[:12]
+            self._trigger_event("ring", details)
+            if (self._entry.options.get("route_video_on_ring")
+                    and self._entry.options.get("call_video_channel", 0) > 0):
+                selected = self._video_router.ring()
+                self.hass.async_create_task(self._notify_after_video_route(selected))
+            else:
+                self.hass.async_create_task(self._notify_homekit_doorbell())
+        if self._release_gate.observe(fresh_snapshot, self._episodes.episode_number):
             event = doorbell_event(raw)
-            mode = release_mode(
-                self._entry.options, event[0], time.time(), AUTO_UNLOCK_SAFETY_HOLD
-            ) if event else None
-            if mode and (self._pending_unlock is None or self._pending_unlock.done()):
-                if mode != "once" or not self._test_consumed:
-                    self._test_consumed = mode == "once"
-                    _LOGGER.info("NeoLight auto unlock requested for fresh ring (%s)", mode)
-                    self._pending_unlock = self.hass.async_create_task(
-                        self._auto_unlock(event[0], mode)
-                    )
+            if event:
+                captured_at = event[0]
+                mode = release_mode(
+                    self._entry.options, captured_at, time.time(), AUTO_UNLOCK_SAFETY_HOLD
+                )
+                if mode and (self._pending_unlock is None or self._pending_unlock.done()):
+                    if mode != "once" or not self._test_consumed:
+                        self._test_consumed = mode == "once"
+                        _LOGGER.info("NeoLight auto unlock requested for fresh ring (%s)", mode)
+                        self._pending_unlock = self.hass.async_create_task(
+                            self._auto_unlock(captured_at, mode)
+                        )
         super()._handle_coordinator_update()
+
+    async def _notify_after_video_route(self, selected: asyncio.Event) -> None:
+        """Give the video input time to change before HomeKit requests a preview."""
+        try:
+            await asyncio.wait_for(selected.wait(), timeout=8)
+        except asyncio.TimeoutError:
+            pass
+        await asyncio.sleep(1)
+        await self._notify_homekit_doorbell()
 
     async def _notify_homekit_doorbell(self) -> None:
         """Pulse the Scrypted HomeKit doorbell on the same Docker host."""
@@ -125,6 +176,13 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
                 "button", "press", {"entity_id": button_id}, blocking=True
             )
             _LOGGER.info("NeoLight auto unlock command acknowledged for %s", relay)
+            if self._entry.options.get("hangup_after_auto_unlock"):
+                await asyncio.sleep(2)
+                try:
+                    await reset_call(self._entry.options.get("native_call_control_port", 0))
+                    _LOGGER.info("NeoLight call ended after auto unlock")
+                except CallControlError as error:
+                    _LOGGER.warning("NeoLight auto unlock succeeded but call hangup failed: %s", error)
         except Exception:
             _LOGGER.exception("NeoLight auto unlock failed")
         finally:

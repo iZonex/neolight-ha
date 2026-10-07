@@ -47,6 +47,16 @@ reconnect is cached state, not proof of a new call. Compare idle, active call,
 answered call, and ended call states separately. Avoid repeated relay tests;
 one deliberate test with the owner at the door establishes the physical target.
 
+For video source mapping, keep the monitor's DP `ipc_c_switch_channel`
+separate from the camera SDK's P2P `switchChannelWithChannel` method. The
+tested monitor advertises `DOOR` as channel 1 and `CAM2` as channel 2, while
+two analog pictures are wired inside `DOOR`. NeoLight 1.1.0 contains
+`TRCTCameraManager.switchChannelWithChannel(int)` forwarding to the P2P
+camera's `switchChannel(int)`, but we have not verified whether it selects
+those inner DOOR pictures on this firmware. A source preview wizard must not
+expose this as a working control until a read-only trace and a reversible
+switch test confirm the mapping.
+
 ## 3. Find the implementation boundary
 
 | Question | Current code |

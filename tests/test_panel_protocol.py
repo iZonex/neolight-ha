@@ -35,6 +35,7 @@ class PanelProfileTests(unittest.TestCase):
         data = json.loads(command["231"])
         self.assertEqual((data["cmd"], data["cc"]), (1, 2))
         self.assertEqual(data["chs"][0]["n"], "DOOR")
+        self.assertEqual(module.channel_labels(current), {1: "DOOR", 2: "CAM2"})
 
     def test_partial_schema_exposes_only_confirmed_controls(self):
         profile = module.PanelProfile.from_schema(SCHEMA[:1])

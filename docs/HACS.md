@@ -17,8 +17,10 @@ must already be installed. It does not install the integration automatically.
    default branch (`main`). The published releases are prereleases and HACS
    may hide them until prereleases are enabled for this repository.
 5. Restart Home Assistant, then open **Settings → Devices & services → Add
-   integration → NeoLight**. Follow [installation](INSTALL.md) for the monitor,
-   stream, and optional cloud profile fields.
+   integration → NeoLight**. Start with **Local monitor and camera**; the app
+   profile is needed only for cloud calls and door controls, and can be linked
+   later. Follow [installation](INSTALL.md) for the camera source and optional
+   media stack.
 
 Existing manual installations should back up the HA configuration first. HACS
 manages the integration directory after installation. Do not place private

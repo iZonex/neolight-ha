@@ -9,6 +9,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .panel_protocol import PanelProfile
@@ -22,17 +23,18 @@ async def async_setup_entry(
     if (runtime.mobile is not None
             and entry.options.get("enable_lock_1", True)
             and PanelProfile.from_schema(runtime.coordinator.data.schema).supports("lock_1")):
-        async_add_entities([NeoLightDoorRelease(entry)])
+        async_add_entities([NeoLightDoorRelease(entry, runtime)])
 
 
-class NeoLightDoorRelease(LockEntity):
+class NeoLightDoorRelease(CoordinatorEntity, LockEntity):
     """Press Lock 1 and return to locked after the relay pulse."""
 
     _attr_has_entity_name = True
     _attr_name = "Door release"
     _attr_is_locked = True
 
-    def __init__(self, entry: ConfigEntry) -> None:
+    def __init__(self, entry: ConfigEntry, runtime) -> None:
+        super().__init__(runtime.coordinator)
         host = entry.data["host"]
         self._host = host
         self._attr_unique_id = f"{host}_door_release"
@@ -44,6 +46,10 @@ class NeoLightDoorRelease(LockEntity):
             configuration_url=f"http://{host}/",
         )
         self._reset_task: asyncio.Task | None = None
+
+    @property
+    def available(self) -> bool:
+        return bool(super().available and self.coordinator.data.cloud_online)
 
     async def async_unlock(self, **kwargs) -> None:
         """Send the same validated command as the HA Lock 1 button."""

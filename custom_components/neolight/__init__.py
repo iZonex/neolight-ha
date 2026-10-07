@@ -4,7 +4,9 @@ import asyncio
 from dataclasses import dataclass
 import json
 import logging
+from pathlib import Path
 
+from aiohttp import ClientError, ClientTimeout
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
@@ -17,6 +19,7 @@ from .client import MonitorClient, MonitorState
 from .const import DOMAIN, PLATFORMS, POLL_INTERVAL
 from .mobile_api import MobileApiClient, MobileApiError
 from .profile import ha_static_fields
+from .schema_cache import load_cached_schema
 from .settings import legacy_vendor_path, load_vendor, runtime_directory, write_private_json
 
 _LOGGER = logging.getLogger(__name__)
@@ -87,21 +90,47 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if all(key in vendor for key in ("api_host", "static_fields", "signing_key", "paired_device_id")) else None
     )
     if mobile is not None and not mobile.sid:
-        await mobile.login()
+        try:
+            await mobile.login()
+        except (MobileApiError, ClientError, TimeoutError) as error:
+            _LOGGER.warning(
+                "NeoLight account login unavailable; local monitor setup continues: %s",
+                type(error).__name__,
+            )
 
-    last_schema: list = []
+    schema_path = Path(hass.config.path("neolight")) / "schema_cache.json"
+    last_schema = await hass.async_add_executor_job(
+        load_cached_schema, schema_path, vendor.get("paired_device_id")
+    )
+
+    async def read_video_health() -> dict | None:
+        url = vendor.get("bridge_health_url")
+        if not url:
+            return None
+        try:
+            async with session.get(url, timeout=ClientTimeout(total=2)) as response:
+                if response.status != 200:
+                    return None
+                data = await response.json()
+                if (isinstance(data, dict) and data.get("status") in
+                        {"live", "starting", "stale"}):
+                    return data
+        except (ClientError, TimeoutError, ValueError):
+            pass
+        return None
 
     async def fetch_state() -> MonitorState:
         nonlocal last_schema
-        local_result, cloud_result = await asyncio.gather(
+        local_result, cloud_result, call_result, video_health = await asyncio.gather(
             client.probe(),
             mobile.read_device(vendor["paired_device_id"]) if mobile else asyncio.sleep(0, result=None),
+            mobile.request("m.ipc.doorbell.call.status.get", "1.0",
+                           {"devId": vendor["paired_device_id"]}) if mobile else asyncio.sleep(0, result=None),
+            read_video_health(),
             return_exceptions=True,
         )
         local_online = not isinstance(local_result, Exception)
         cloud_online = isinstance(cloud_result, dict) and cloud_result.get("isOnline") is True
-        if mobile is not None and not isinstance(cloud_result, dict) and not last_schema:
-            raise UpdateFailed(str(cloud_result))
         if not local_online and not isinstance(cloud_result, dict):
             error = cloud_result if isinstance(cloud_result, Exception) else local_result
             raise UpdateFailed(str(error))
@@ -116,14 +145,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if not isinstance(schema, list):
             schema = []
         if schema:
+            if schema != last_schema and vendor.get("paired_device_id"):
+                await hass.async_add_executor_job(
+                    write_private_json, schema_path,
+                    {"device_id": vendor["paired_device_id"], "schema": schema},
+                )
             last_schema = schema
-        elif not isinstance(cloud_result, dict):
+        else:
             schema = last_schema
         return MonitorState(
             online=local_online,
             cloud_online=cloud_online,
             dps=cloud_result.get("dps", {}) if isinstance(cloud_result, dict) else {},
             schema=schema,
+            call_status=(call_result.get("callStatus")
+                         if isinstance(call_result, dict)
+                         and type(call_result.get("callStatus")) is int else None),
+            video_health=video_health if isinstance(video_health, dict) else None,
         )
 
     coordinator: DataUpdateCoordinator[MonitorState] = DataUpdateCoordinator(

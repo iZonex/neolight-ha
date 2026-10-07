@@ -21,10 +21,23 @@ command acknowledged by the account API, and the owner confirmed that the
 entrance opened. Persistent mode is available but off by default; missed rings
 and other wiring modes still need testing.
 
+The ring detector now merges snapshot and call-status reports into one call
+episode, including delayed status updates and active calls across an HA restart.
+The ordering is covered by offline tests and installed on the owner's HA.
+A real multi-call trace is still needed to establish the shortest safe interval
+between separate calls and to measure missed calls.
+The HA ring event now records its signal source and an anonymized alarm hash;
+the read-only MQTT observer records the matching hash when the cloud publishes
+DP 185. These fields let a later ordinary call establish ordering without
+opening the door or collecting video/audio.
+
 ## Before a stable release
 
 - Verify Apple Home release physically and expose clear command failures.
 - Add answer and hangup in the HA interface, then test call audio lifecycle.
+- Confirm the call identifier and protocol 308 answer/stop events on this
+  monitor before enabling those controls. The writable `ipc_doorbell_fb` DP
+  used by another Tuya doorbell path is absent from the tested ALPHA Hybrid.
 - Generate the private app profile from an authorized APK/session without
   requiring manual protocol inspection.
 - Confirm clean installation, restart, upgrade, and removal on another host.

@@ -11,12 +11,17 @@ Use [HACS custom repository installation](HACS.md), or copy
 `custom_components` folder, then restart Home Assistant. In
 **Settings → Devices & services → Add integration**, select **NeoLight**.
 
-Enter the monitor IP, the DOOR MainStream UUID, and its RTSP credentials. The
-stream UUID is the identifier between `/` and `-MainStream` in a working
-monitor RTSP URL. The next screen accepts an optional private app profile and
-NeoLight account credentials. Leave the profile and account blank for a
-local-only camera setup. For cloud control, use your own paired account and a
-profile with this shape:
+Enter the monitor IP and, if known, the DOOR MainStream UUID and RTSP
+credentials. The stream UUID is the identifier between `/` and `-MainStream`
+in a working monitor RTSP URL. Choose **Local monitor and camera** to finish
+without an app profile; an optional RTSP URL from a shared video bridge can be
+entered on the next screen. At least one stream UUID or RTSP URL is required
+for a camera entity. If neither is available yet, add the monitor now and set
+the camera source later under **Configure → Advanced media**.
+
+Choose **Link NeoLight account now** for cloud calls and door controls, or
+select **Configure → Link NeoLight account** after local setup. This advanced
+path requires a profile from your own paired app installation, with this shape:
 
 ```json
 {
@@ -40,17 +45,36 @@ requests; they are not the monitor's web password. This alpha does not yet
 extract a profile automatically. Keep the profile private. The UI checks the
 login and that the selected monitor belongs to the account. Runtime files are
 written under `/config/neolight` with restricted permissions. Do not commit
-that directory.
+that directory. The account path is optional; the local camera does not need
+it.
 
-In the integration's **Configure** form, select which entities to expose.
-Lock 2 is off by default because its physical destination has not been
-verified. Configure the camera RTSP URL as
+If the NeoLight cloud is unavailable during a later HA restart, the LAN
+monitor and configured RTSP camera still load. Cloud door and video-input
+controls show unavailable until the account and device respond again. HA keeps
+the last schema in private storage for the same paired monitor so these
+entities can return without being recreated.
+
+In the integration's **Configure** menu, use **Entrances and video** to choose
+the camera and relay entities, **Calls** for the doorbell event,
+**Automatic opening** for the relay rule and one-time test,
+**Apple Home** for its ring webhook, and **NeoLight account** to update the
+login. Manual RTSP details are under **Advanced media**. Saving one page
+preserves the other pages' settings. Lock 2 is off by default because its
+physical destination has not been verified. Configure the camera RTSP URL as
 `rtsp://127.0.0.1:8556/neolight_door_with_audio` when the media stack below
 is running on the same host and Home Assistant uses host networking. Set
 **Preferred video channel** to the channel carrying the entrance camera if
 the monitor returns to a blank or different input after a media reconnect.
 `0` leaves the monitor's current selection alone. The tested ALPHA Hybrid
 uses channel `1` for DOOR; confirm the mapping on other installations.
+The **Video input** entity lets you select any input exposed by the monitor.
+**Call video channel** refers to the monitor's channel list (`DOOR`, `CAM2`,
+etc.). On the tested installation, the entrance camera and Vizit video are
+two analog sources within `DOOR`; `CAM2` is a different monitor channel and
+does not select the second DOOR source. Keep both idle and call channel set to
+`DOOR` until the inner source selection is verified. A fresh ring selects the
+configured monitor channel; after the timeout, HA restores the channel that
+was active before the ring. The default is off because wiring varies.
 
 ## 2. Start the media stack
 
@@ -69,6 +93,14 @@ The go2rtc API and RTSP ports in `go2rtc.yaml` bind to loopback. The media
 bridge holds one P2P session, publishes the monitor's audio, and combines it
 with the local RTSP video. If RTSP drops, the mux can temporarily use its
 lower frame rate P2P video.
+
+For video diagnostics in HA, open **NeoLight → Configure → Advanced media** and
+set **Video bridge health URL** to `http://127.0.0.1:38558/health` when HA and
+the mux share host networking. The **Video bridge** diagnostic sensor reports
+whether output video bytes are advancing, their age, and whether the mux is
+using the monitor RTSP source or the native backup. It does not judge image
+content. **App call signal** reports the cloud API's call flag; it does not
+measure whether the analog handset is physically on-hook.
 
 ## 3. Optional Apple Home doorbell
 
@@ -98,10 +130,15 @@ HomeKit Bridge; its physical action from Apple Home remains unverified.
   minutes, accepts only a new timestamped call seen within ten seconds of its
   snapshot, and disarms after the attempt or expiry. Check the HA log and the
   physical door before enabling the persistent switch.
-- The cloud doorbell event is polled and may miss a call. A missed call cannot
-  trigger the one-time release.
-- Incoming-call answer/hangup through HA is not implemented. Apple Home Live
-  talk is an on-demand media session.
+- The integration polls both the snapshot alarm and the APK's call-status API.
+  It triggers on a new active call (`callStatus=0`) or a fresh timestamped
+  snapshot alarm. Very short calls can still end between polls; a missed call
+  cannot trigger automatic release.
+- Apple Home Talk sends a Tuya call `accept` for a recent, supported video
+  call and `stop` when Talk ends. The live ALPHA Hybrid / Vizit call type and
+  physical answer/hangup behavior still require a call test. An ordinary
+  `doorbell` call type is unsupported by this Tuya command. Live viewing by
+  itself does not answer the call.
 - Other NeoLight models, firmware, and analog adapters need their own testing.
 
 For development details, see [architecture](ARCHITECTURE.md).

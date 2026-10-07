@@ -1,0 +1,174 @@
+{
+  "options": {
+    "step": {
+      "init": {
+        "title": "NeoLight settings",
+        "description": "Choose what you want to configure.",
+        "menu_options": {
+          "entrances": "Entrances and video",
+          "calls": "Calls",
+          "automatic_opening": "Automatic opening",
+          "apple_home": "Apple Home",
+          "advanced": "Advanced media",
+          "account": "NeoLight account",
+          "link_account": "Link NeoLight account"
+        }
+      },
+      "entrances": {
+        "title": "Entrances and video",
+        "description": "Configure the camera and, when an account is linked, the video input and door controls.",
+        "data": {
+          "enable_camera": "Camera",
+          "enable_lock_1": "Lock 1 and Door release",
+          "enable_lock_2": "Lock 2 (verify physical target first)",
+          "preferred_video_channel": "Preferred video channel (0 keeps the device selection)",
+          "route_video_on_ring": "Switch video to the call channel when ringing",
+          "call_video_channel": "Monitor channel during a call (DOOR/CAM; 0 disables switching)",
+          "call_video_hold_seconds": "Keep call video for this many seconds"
+        }
+      },
+      "calls": {
+        "title": "Calls",
+        "description": "Enable the incoming doorbell event. Call controls appear when their bridge is configured.",
+        "data": {
+          "enable_doorbell": "Doorbell event"
+        }
+      },
+      "automatic_opening": {
+        "title": "Automatic opening",
+        "description": "Choose when a fresh call may open a verified door. The one-time test expires after 15 minutes.",
+        "data": {
+          "auto_unlock_on_ring": "Automatically unlock when someone rings",
+          "auto_unlock_test_once": "Unlock once on the next ring (armed for 15 minutes)",
+          "auto_unlock_relay": "Relay to unlock",
+          "auto_unlock_delay": "Unlock delay in seconds",
+          "hangup_after_auto_unlock": "End the call after automatic door release"
+        }
+      },
+      "apple_home": {
+        "title": "Apple Home",
+        "description": "Connect the HomeKit doorbell notification bridge.",
+        "data": {
+          "homekit_ring_url": "HomeKit ring webhook URL"
+        }
+      },
+      "advanced": {
+        "title": "Advanced media",
+        "description": "Manual RTSP and media settings for installations that need them.",
+        "data": {
+          "native_call_control_port": "Native bridge call control port (0 disables End call)",
+          "restream_url": "Camera RTSP URL",
+          "stream_id": "RTSP stream UUID",
+          "rtsp_user": "RTSP username",
+          "rtsp_password": "RTSP password",
+          "bridge_health_url": "Video bridge health URL (optional)"
+        }
+      },
+      "account": {
+        "title": "NeoLight account",
+        "description": "Update the account paired with this monitor. Leave the password blank to keep it.",
+        "data": {
+          "email": "Email",
+          "password": "Password",
+          "country_code": "Country calling code"
+        }
+      },
+      "link_account": {
+        "title": "Link NeoLight account",
+        "description": "Optional advanced setup. Paste a profile from your own app installation, then sign in to enable calls and door controls. Local video keeps working if you skip this step.",
+        "data": {
+          "app_profile": "App profile JSON",
+          "email": "NeoLight email",
+          "password": "Password",
+          "country_code": "Country calling code"
+        }
+      }
+    },
+    "error": {
+      "invalid_account": "Enter a valid email, password, and country code",
+      "cannot_auth": "Cannot sign in or access the paired device",
+      "invalid_stream_id": "Enter a valid stream UUID",
+      "invalid_stream_url": "Enter an RTSP URL",
+      "invalid_ring_url": "Enter an HTTP(S) URL",
+      "invalid_call_video_channel": "Choose a call video channel to enable automatic switching",
+      "invalid_call_control_port": "Set the native call control port to enable automatic hangup",
+      "doorbell_required": "Enable doorbell events before automatic opening",
+      "invalid_auto_unlock_relay": "Enable the selected door control before automatic opening",
+      "invalid_bridge_health_url": "Enter an HTTP(S) bridge health URL",
+      "invalid_profile": "App profile JSON is missing required fields or is malformed"
+    }
+  },
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect NeoLight monitor",
+        "description": "Enter the monitor address. The stream UUID is optional if you will provide a camera RTSP URL on the next screen or later in Configure.",
+        "data": {
+          "host": "Monitor IP address",
+          "stream_id": "RTSP stream UUID",
+          "rtsp_user": "RTSP username",
+          "rtsp_password": "RTSP password"
+        }
+      },
+      "connection": {
+        "title": "Choose how to connect",
+        "description": "Start with the local monitor. Cloud calls and door controls can be linked later in Configure.",
+        "menu_options": {
+          "local": "Local monitor and camera",
+          "cloud": "Link NeoLight account now"
+        }
+      },
+      "local": {
+        "title": "Local camera",
+        "description": "Optional: enter a shared RTSP bridge URL. If you already entered a stream UUID, you can leave this empty. You can add or change the camera URL later in Configure.",
+        "data": {
+          "restream_url": "Camera RTSP URL"
+        }
+      },
+      "cloud": {
+        "title": "NeoLight app and media",
+        "description": "Advanced setup: use a profile from your own app installation for cloud calls and door release. Account credentials and app profile stay in Home Assistant private storage.",
+        "data": {
+          "app_profile": "App profile JSON",
+          "email": "NeoLight email",
+          "password": "NeoLight password",
+          "country_code": "Country calling code",
+          "restream_url": "Camera RTSP URL"
+        }
+      }
+    },
+    "error": {
+      "invalid_host": "Enter the monitor's IP address",
+      "invalid_stream_id": "Enter a valid stream UUID",
+      "cannot_connect": "Cannot identify the NeoLight monitor at this address",
+      "invalid_account": "Enter a valid email, password, and country code",
+      "cannot_auth": "Cannot sign in or access the paired device",
+      "invalid_profile": "App profile JSON is missing required fields or is malformed",
+      "invalid_stream_url": "Enter an RTSP URL",
+      "invalid_ring_url": "Enter an HTTP(S) URL"
+    },
+    "abort": {
+      "already_configured": "This monitor is already configured",
+      "single_instance_allowed": "Only one monitor per Home Assistant installation is supported"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "app_call_signal": {
+        "name": "App call signal",
+        "state": {
+          "active": "Active",
+          "no_app_call": "No app call"
+        }
+      },
+      "video_bridge": {
+        "name": "Video bridge",
+        "state": {
+          "live": "Live",
+          "starting": "Starting",
+          "stale": "Stale"
+        }
+      }
+    }
+  }
+}
