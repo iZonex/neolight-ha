@@ -168,6 +168,14 @@
           "starting": "Starting",
           "stale": "Stale"
         }
+      },
+      "native_call": {
+        "name": "Native call",
+        "state": {
+          "idle": "Idle",
+          "ringing": "Ringing",
+          "answered": "Answered"
+        }
       }
     }
   }

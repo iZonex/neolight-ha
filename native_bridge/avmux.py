@@ -35,7 +35,7 @@ def health_snapshot(now: float | None = None) -> dict:
            if health["last_video_at"] is not None else None)
     if health["publisher"] and age is not None and age <= 15:
         status = "live"
-    elif health["started_at"] is not None and now - health["started_at"] < 25:
+    elif health["started_at"] is not None and now - health["started_at"] < 15:
         status = "starting"
     else:
         status = "stale"
@@ -113,6 +113,16 @@ def primary_healthy(primary_video: str) -> bool:
         return False
 
 
+def next_source(backup: bool, failures: int, return_primary: bool) -> tuple[bool, int]:
+    """Retry each failed source once; never remain on a dead backup forever."""
+    if return_primary:
+        return False, 0
+    failures += 1
+    if failures >= 2:
+        return not backup, 0
+    return backup, failures
+
+
 def stop(_signal: int, _frame: object) -> None:
     global running
     running = False
@@ -163,7 +173,7 @@ def main() -> None:
         return_primary = False
         while running and process.poll() is None:
             time.sleep(5)
-            if time.monotonic() - started < 25:
+            if time.monotonic() - started < 12:
                 continue
             state = publishing()
             if state is None:
@@ -172,14 +182,15 @@ def main() -> None:
             health["publisher"] = active
             if active and video_bytes != last_video_bytes:
                 health["last_video_at"] = time.monotonic()
+                startup_failures = 0
             absent = 0 if active else absent + 1
-            if absent >= 3:
+            if absent >= 2:
                 LOG.warning("RTSP publisher disappeared; restarting FFmpeg")
                 break
             if active:
                 stalled = stalled + 1 if video_bytes == last_video_bytes else 0
                 last_video_bytes = video_bytes
-                if stalled >= 4:
+                if stalled >= 3:
                     LOG.warning("RTSP video stalled; restarting FFmpeg")
                     break
             if backup and time.monotonic() - last_primary_probe >= 30:
@@ -199,15 +210,7 @@ def main() -> None:
         health["publisher"] = False
         if running:
             LOG.warning("FFmpeg exited (%s)", process.returncode)
-            if return_primary:
-                backup = False
-                startup_failures = 0
-            elif not backup:
-                startup_failures = startup_failures + 1 if time.monotonic() - started < 25 else 10
-                if startup_failures >= 10:
-                    backup = True
-            else:
-                startup_failures = 0
+            backup, startup_failures = next_source(backup, startup_failures, return_primary)
             time.sleep(3)
     server.shutdown()
     server.server_close()

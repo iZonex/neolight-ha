@@ -30,7 +30,8 @@ from tuya_ipc_p2p_sdk.transport.relay_session import VIDEO_CONVERSATION
 
 from mobile_api import MobileApiClient, MobileApiError
 from account_identity import native_static_fields
-from call_signaling import ActiveCall, call_command, incoming_call
+from call_signaling import ActiveCall, call_command, ended_call_type, incoming_call
+from call_lifecycle import CallLifecycle
 from panel_protocol import PanelProfile
 from protocol import TALK_START_TYPE, audio_packet, control_packet
 
@@ -42,15 +43,16 @@ TALK_PORT = int(os.environ.get("NEOLIGHT_TALK_PORT", "38556"))
 CALL_CONTROL_PORT = int(os.environ.get("NEOLIGHT_CALL_CONTROL_PORT", "38557"))
 VIDEO_TYPE = 0x00010003
 AUDIO_TYPE = 0x00010005
-CALL_MAX_AGE = 60
 
 
 class CallAwareMotoClient(MotoClient):
     """Pass fresh call notifications to the same P2P session's talk control."""
 
-    def __init__(self, *args, on_call: Callable[[ActiveCall], None], **kwargs) -> None:
+    def __init__(self, *args, on_call: Callable[[ActiveCall], None],
+                 on_call_end: Callable[[str], None], **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._on_call = on_call
+        self._on_call_end = on_call_end
 
     def _consume(self, payload: bytes) -> None:
         try:
@@ -60,6 +62,10 @@ class CallAwareMotoClient(MotoClient):
             call = incoming_call(decoded, self._device_id)
             if call is not None:
                 self._on_call(call)
+                return
+            ended_type = ended_call_type(decoded, self._device_id)
+            if ended_type is not None:
+                self._on_call_end(ended_type)
                 return
         except Exception:
             pass
@@ -218,9 +224,7 @@ class NeoLightSession(StreamSession):
         self.last_video = time.monotonic()
         self.talk_active = False
         self._control_responses: asyncio.Queue[tuple[int, int]] = asyncio.Queue()
-        self._incoming_call: ActiveCall | None = None
-        self._incoming_at = 0.0
-        self._answered_call: ActiveCall | None = None
+        self.call = CallLifecycle()
 
     async def _async_connect_signaling(self, session_id: str) -> None:
         self._moto = CallAwareMotoClient(
@@ -233,39 +237,47 @@ class NeoLightSession(StreamSession):
             on_candidate=self._on_remote_candidate,
             on_disconnect=self._on_device_disconnect,
             on_call=self._on_incoming_call,
+            on_call_end=self._on_call_end,
         )
         await self._moto.async_connect()
 
     def _on_incoming_call(self, call: ActiveCall) -> None:
-        self._incoming_call = call
-        self._incoming_at = time.monotonic()
-        LOGGER.info("Incoming %s call is available for Apple Home Talk", call.call_type)
+        if self.call.receive(call, time.monotonic()):
+            LOGGER.info("Incoming %s call is available for Talk", call.call_type)
 
-    async def answer_active_call(self) -> None:
-        call = self._incoming_call
-        if call is None or time.monotonic() - self._incoming_at > CALL_MAX_AGE:
-            return
+    def _on_call_end(self, call_type: str) -> None:
+        if self.call.call and self.call.call.call_type == call_type:
+            self.call.clear()
+            LOGGER.info("NeoLight %s call ended remotely", call_type)
+
+    async def answer_active_call(self) -> bool:
+        now = time.monotonic()
+        if self.call.state(now) == "answered":
+            return True
+        call = self.call.answerable(now)
+        if call is None:
+            return False
         moto = self._require_moto()
         await moto._async_publish(
             308, call_command(call.call_type, call.device_id, call.message_id,
                               "accept", call.channel_id)
         )
-        self._answered_call = call
-        LOGGER.info("NeoLight call answer sent for Apple Home Talk")
+        self.call.mark_answered(now)
+        LOGGER.info("NeoLight call answer sent")
+        return True
 
-    async def hangup_active_call(self) -> None:
-        call = self._answered_call
-        self._answered_call = None
+    async def hangup_active_call(self) -> bool:
+        call = self.call.answered(time.monotonic())
         if call is None:
-            return
+            return False
         moto = self._require_moto()
         await moto._async_publish(
             308, call_command(call.call_type, call.device_id, call.message_id,
                               "stop", call.channel_id)
         )
-        if self._incoming_call == call:
-            self._incoming_call = None
-        LOGGER.info("NeoLight call hangup sent after Apple Home Talk")
+        self.call.clear()
+        LOGGER.info("NeoLight call hangup sent")
+        return True
 
     def _on_media_record(self, record: bytes) -> None:
         self.raw_video_records += 1
@@ -475,10 +487,20 @@ async def handle_talk(reader: asyncio.StreamReader, writer: asyncio.StreamWriter
 
 async def handle_call_control(reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
                               session: NeoLightSession) -> None:
-    """Recover a stuck off-hook monitor through a localhost-only command."""
+    """Expose bounded call state and commands on localhost only."""
     try:
         command = await asyncio.wait_for(reader.readline(), timeout=2)
-        if command != b"reset\n" or session.talk_active:
+        if command == b"status\n":
+            writer.write(json.dumps(session.call.public_status(
+                time.monotonic(), session.talk_active)).encode() + b"\n")
+        elif command in (b"answer\n", b"hangup\n"):
+            if session.talk_active:
+                writer.write(b"busy\n")
+            elif command == b"answer\n":
+                writer.write(b"ok\n" if await session.answer_active_call() else b"no_call\n")
+            else:
+                writer.write(b"ok\n" if await session.hangup_active_call() else b"no_call\n")
+        elif command != b"reset\n" or session.talk_active:
             writer.write(b"busy\n")
         else:
             session.talk_active = True

@@ -19,6 +19,8 @@ async def async_setup_entry(
         entities.append(NeoLightAppCallSignal(runtime.coordinator, entry))
     if runtime.vendor.get("bridge_health_url"):
         entities.append(NeoLightVideoBridgeStatus(runtime.coordinator, entry))
+    if entry.options.get("native_call_control_port", 0):
+        entities.append(NeoLightNativeCallStatus(runtime.coordinator, entry))
     async_add_entities(entities)
 
 
@@ -92,3 +94,29 @@ class NeoLightVideoBridgeStatus(NeoLightStatusSensor):
             "video_source": self.coordinator.data.video_health.get("source"),
             "video_age_seconds": self.coordinator.data.video_health.get("video_age_seconds"),
         }
+
+
+class NeoLightNativeCallStatus(NeoLightStatusSensor):
+    """Transient MQTT call known to the native P2P bridge."""
+
+    _attr_translation_key = "native_call"
+    _attr_icon = "mdi:phone"
+
+    def __init__(self, coordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "native_call")
+
+    @property
+    def available(self) -> bool:
+        return bool(self.coordinator.data and self.coordinator.data.native_call)
+
+    @property
+    def native_value(self) -> str | None:
+        return self.coordinator.data.native_call["state"] if self.available else None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        if not self.available:
+            return {}
+        state = self.coordinator.data.native_call
+        return {"talk_active": state["talk_active"],
+                "call_type": state.get("call_type"), "age_seconds": state.get("age_seconds")}

@@ -29,3 +29,10 @@ class VideoHealthTests(unittest.TestCase):
         avmux.health.update(source="native_backup", publisher=False,
                             started_at=95.0, last_video_at=None)
         self.assertEqual(avmux.health_snapshot(100.0)["status"], "starting")
+
+    def test_primary_publisher_is_retried_before_backup(self):
+        self.assertEqual(avmux.next_source(False, 0, False), (False, 1))
+        self.assertEqual(avmux.next_source(False, 1, False), (True, 0))
+        self.assertEqual(avmux.next_source(True, 0, False), (True, 1))
+        self.assertEqual(avmux.next_source(True, 1, False), (False, 0))
+        self.assertEqual(avmux.next_source(True, 1, True), (False, 0))

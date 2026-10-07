@@ -6,6 +6,7 @@ from hashlib import sha256
 import json
 import re
 from dataclasses import dataclass
+import time
 from typing import Any
 
 
@@ -22,7 +23,8 @@ class ActiveCall:
     channel_id: str | None
 
 
-def incoming_call(message: Any, expected_device_id: str) -> ActiveCall | None:
+def incoming_call(message: Any, expected_device_id: str,
+                  now_wall: float | None = None) -> ActiveCall | None:
     """Extract only the fields the APK uses for its call control command."""
     if not isinstance(message, dict) or message.get("protocol") != 43:
         return None
@@ -38,7 +40,28 @@ def incoming_call(message: Any, expected_device_id: str) -> ActiveCall | None:
         return None
     if channel_id is not None and (not isinstance(channel_id, str) or not channel_id):
         return None
+    recorded_at = body.get("time")
+    if type(recorded_at) in (int, float) and recorded_at > 0:
+        if recorded_at > 10_000_000_000:
+            recorded_at /= 1000
+        now_wall = time.time() if now_wall is None else now_wall
+        if not -10 <= now_wall - recorded_at <= 60:
+            return None
     return ActiveCall(call_type, expected_device_id, message_id, channel_id)
+
+
+def ended_call_type(message: Any, expected_device_id: str) -> str | None:
+    """Recognize a device-originated call end without trusting another device."""
+    if not isinstance(message, dict) or message.get("protocol") != 308:
+        return None
+    body = message.get("data")
+    if not isinstance(body, dict):
+        return None
+    detail = body.get("data")
+    if (not isinstance(detail, dict) or detail.get("devId") != expected_device_id
+            or detail.get("event") not in {"cancel", "stop"}):
+        return None
+    return _label(body.get("type"))
 
 
 def _digest(value: object) -> str | None:

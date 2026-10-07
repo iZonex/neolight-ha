@@ -15,7 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .call_control import CallControlError, reset_call
+from .call_control import CallControlError, answer_call, hangup_call, reset_call
 from .panel_protocol import PanelProfile
 
 
@@ -46,6 +46,8 @@ async def async_setup_entry(
                     registry.async_remove(old_entity.entity_id)
     if entry.options.get("native_call_control_port", 0):
         buttons.append(NeoLightEndCallButton(entry))
+        buttons.append(NeoLightCallButton(entry, runtime, "answer"))
+        buttons.append(NeoLightCallButton(entry, runtime, "hangup"))
     async_add_entities(buttons)
 
 
@@ -72,6 +74,41 @@ class NeoLightEndCallButton(ButtonEntity):
             await reset_call(self._port)
         except CallControlError as error:
             raise HomeAssistantError(str(error)) from error
+
+
+class NeoLightCallButton(CoordinatorEntity, ButtonEntity):
+    """Control only a fresh call reported by the native bridge."""
+
+    _attr_has_entity_name = True
+
+    def __init__(self, entry: ConfigEntry, runtime, action: str) -> None:
+        super().__init__(runtime.coordinator)
+        host = entry.data["host"]
+        self._port = entry.options["native_call_control_port"]
+        self._action = action
+        self._attr_name = "Answer call" if action == "answer" else "Hang up call"
+        self._attr_unique_id = f"{host}_{action}_call"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, host)}, name="NeoLight ALPHA Hybrid",
+            manufacturer="NeoLight", model="ALPHA Hybrid",
+            configuration_url=f"http://{host}/",
+        )
+
+    @property
+    def available(self) -> bool:
+        state = self.coordinator.data.native_call if self.coordinator.data else None
+        return bool(state and state["state"] == (
+            "ringing" if self._action == "answer" else "answered"))
+
+    async def async_press(self) -> None:
+        try:
+            if self._action == "answer":
+                await answer_call(self._port)
+            else:
+                await hangup_call(self._port)
+        except CallControlError as error:
+            raise HomeAssistantError(str(error)) from error
+        await self.coordinator.async_request_refresh()
 
 
 class NeoLightRelayButton(CoordinatorEntity, ButtonEntity):

@@ -104,6 +104,15 @@ using the monitor RTSP source or the native backup. It does not judge image
 content. **App call signal** reports the cloud API's call flag; it does not
 measure whether the analog handset is physically on-hook.
 
+Set **Native bridge call control port** to `38557` in **Configure → Calls**
+when the native media bridge runs on the same host network. HA then shows a
+**Native call** diagnostic and enables **Answer call** and **Hang up call** only
+when the bridge has received a fresh, controllable MQTT call. **End call**
+remains a separate recovery control for a stuck analog handset. These controls
+do not provide a microphone in the HA dashboard yet; use Apple Home Live for
+two-way speech. The call buttons require a real call test on each panel model
+before relying on them.
+
 ## 3. Optional Apple Home doorbell
 
 Start an existing Scrypted installation or run the optional Compose service

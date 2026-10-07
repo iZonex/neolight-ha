@@ -14,6 +14,7 @@ COPY native_bridge/protocol.py /app/protocol.py
 COPY native_bridge/avmux.py /app/avmux.py
 COPY native_bridge/observe_mobile_mqtt.py /app/observe_mobile_mqtt.py
 COPY native_bridge/call_signaling.py /app/call_signaling.py
+COPY native_bridge/call_lifecycle.py /app/call_lifecycle.py
 COPY native_bridge/observe_call_signaling.py /app/observe_call_signaling.py
 
 CMD ["python", "-u", "/app/neolight_native.py"]

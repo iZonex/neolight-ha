@@ -27,6 +27,7 @@ class MonitorState:
     schema: list[Mapping[str, Any]] = field(default_factory=list)
     call_status: int | None = None
     video_health: Mapping[str, Any] | None = None
+    native_call: Mapping[str, Any] | None = None
 
 
 class MonitorClient:
