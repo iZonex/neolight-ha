@@ -130,10 +130,10 @@ HomeKit Bridge; its physical action from Apple Home remains unverified.
   minutes, accepts only a new timestamped call seen within ten seconds of its
   snapshot, and disarms after the attempt or expiry. Check the HA log and the
   physical door before enabling the persistent switch.
-- The integration polls both the snapshot alarm and the APK's call-status API.
-  It triggers on a new active call (`callStatus=0`) or a fresh timestamped
-  snapshot alarm. Very short calls can still end between polls; a missed call
-  cannot trigger automatic release.
+- The integration triggers a ring only from a fresh timestamped snapshot alarm.
+  It also reports the APK's `callStatus` for diagnostics, but that flag may stay
+  active for hours and cannot establish a new entrance call. Very short calls
+  can still end between polls; a missed call cannot trigger automatic release.
 - Apple Home Talk sends a Tuya call `accept` for a recent, supported video
   call and `stop` when Talk ends. The live ALPHA Hybrid / Vizit call type and
   physical answer/hangup behavior still require a call test. An ordinary

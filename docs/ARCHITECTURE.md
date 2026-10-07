@@ -32,17 +32,14 @@ newer than the current HA runtime, and attached to a snapshot path it has not
 seen. This rejects the stale value previously replayed after reconnecting.
 The cloud DP is still polled and can miss a call. A supervised Vizit call
 physically opened Lock 1 after one timestamped event and one cloud command.
-The HA event detector correlates that snapshot with an active-call transition
-so the two reports of one call produce one ring event and at most one automatic
-release attempt. It also ignores an active call already present when HA starts.
-Signals within 20 seconds are merged conservatively, which can hide a very
-quick second call. This correlation does not make cloud polling lossless.
+The HA event detector accepts only a fresh timestamped snapshot. The app
+`callStatus` value stayed `0` for many hours on the tested monitor, so it is
+diagnostic only and never creates a ring or blocks a new snapshot. Distinct
+snapshots within 20 seconds are merged conservatively, which can hide a very
+quick second call. This does not make cloud polling lossless.
 Automatic unlock is off by default and requires the HA switch. Each command
-requires a timestamped snapshot captured within ten seconds. An app
-`callStatus` transition can announce a call, but cannot open a door by itself.
-If it arrives before the snapshot, the later validated snapshot can still
-release once for that call. The one-time test expires after
-fifteen minutes and disarms after its first attempt.
+requires a timestamped snapshot captured within ten seconds. The one-time test
+expires after fifteen minutes and disarms after its first attempt.
 
 The native bridge uses `tuya-ipc-p2p-sdk` for its encrypted session. It signs
 in with a stable installation identity separate from HA's API client, so a
