@@ -8,6 +8,10 @@ container_name="neolight-hacs-smoke-$$"
 
 cleanup() {
   docker rm -f "$container_name" >/dev/null 2>&1 || true
+  # HA writes some files as root inside the mounted temporary config.
+  docker run --rm -v "$config_dir:/config" --entrypoint chown \
+    ghcr.io/home-assistant/home-assistant:stable \
+    -R "$(id -u):$(id -g)" /config >/dev/null 2>&1 || true
   rm -rf "$config_dir"
 }
 trap cleanup EXIT
