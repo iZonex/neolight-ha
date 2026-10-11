@@ -44,8 +44,8 @@ unanswered notification rather than assuming that an end event will arrive.
 - Verify Apple Home release physically and expose clear command failures.
 - Test HA answer and hangup controls during a real Vizit call; the controls
   already use the observed native call identifier and protocol 308 commands.
-- Add a microphone UI in Home Assistant. The native bridge and Apple Home
-  talkback work, but HA currently exposes answer/hangup buttons only.
+- Physically verify the HA browser microphone card during a real call,
+  including close/timeout recovery and Apple Home contention.
 - Verify native call event delivery after deployment and at least one short
   ring; cloud snapshot polling remains the fallback and release proof.
 - Identify motion event payloads, visitor snapshot retrieval, and archive

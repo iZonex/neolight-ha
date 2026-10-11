@@ -114,10 +114,26 @@ Set **Native bridge call control port** to `38557` in **Configure → Advanced m
 when the native media bridge runs on the same host network. HA then shows a
 **Native call** diagnostic and enables **Answer call** and **Hang up call** only
 when the bridge has received a fresh, controllable MQTT call. **End call**
-remains a separate recovery control for a stuck analog handset. These controls
-do not provide a microphone in the HA dashboard yet; use Apple Home Live for
-two-way speech. The call buttons require a real call test on each panel model
-before relying on them.
+remains a separate recovery control for a stuck analog handset.
+
+The optional **NeoLight Talk** dashboard card provides a browser microphone
+through the same native talk socket as Apple Home. It requires HTTPS for
+browser microphone access and a user with control permission for the NeoLight
+camera. Add `/neolight/talk-card.js` as a JavaScript module in **Settings →
+Dashboards → Resources**, then add a manual card:
+
+```yaml
+type: custom:neolight-talk-card
+camera: camera.neolight_alpha_hybrid_door_camera
+call_entity: sensor.neolight_alpha_hybrid_native_call # optional
+```
+
+Use the camera entity ID from your own HA installation. **Talk** opens the
+microphone and native call, **End conversation** closes both. Closing the
+card or losing the browser connection also ends the native talk socket after
+a short idle timeout. The card shares the native bridge with Apple Home, so
+only one microphone can be active at a time. The call buttons and browser
+microphone require a real call test on each panel model before relying on them.
 
 ## 3. Optional Apple Home doorbell
 

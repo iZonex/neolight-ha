@@ -9,6 +9,7 @@ from pathlib import Path
 from aiohttp import ClientError, ClientTimeout
 import voluptuous as vol
 
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
@@ -25,6 +26,7 @@ from .panel_protocol import PanelProfile
 from .schema_cache import load_cached_schema
 from .settings import (legacy_vendor_path, load_vendor, migrate_legacy_state,
                        runtime_directory, write_private_json)
+from .talkback import setup_talkback, _sessions
 from .video_recovery import VideoRecovery
 
 _LOGGER = logging.getLogger(__name__)
@@ -44,6 +46,11 @@ class NeoLightRuntime:
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Allow a local YAML entry to import the private paired-device config."""
+    setup_talkback(hass)
+    await hass.http.async_register_static_paths([
+        StaticPathConfig("/neolight/talk-card.js",
+                         str(Path(__file__).parent / "www" / "talk-card.js"), False),
+    ])
     if DOMAIN in config:
         path = Path(hass.config.path("neolight")) / "vendor_config.json"
         if not path.exists():
@@ -224,6 +231,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload NeoLight platforms."""
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
+        await _sessions(hass).close_entry(entry.entry_id)
         runtime = hass.data[DOMAIN].pop(entry.entry_id, None)
         if runtime and runtime.call_watch_task:
             runtime.call_watch_task.cancel()
