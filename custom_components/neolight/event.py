@@ -22,6 +22,7 @@ from .call_control import CallControlError, reset_call
 from .call_state import ReleaseEpisodeGate, RingEpisodeDetector
 from .release_policy import release_mode
 from .ring_message import RingDeduplicator, doorbell_event
+from .motion_message import MotionDeduplicator
 from .settings import runtime_directory
 from .video_router import VideoRouter
 
@@ -33,8 +34,52 @@ async def async_setup_entry(
 ) -> None:
     """Expose the alarm_message event when the mobile API is available."""
     runtime = hass.data[DOMAIN][entry.entry_id]
-    if runtime.mobile is not None and entry.options.get("enable_doorbell", True):
-        async_add_entities([NeoLightDoorbellEvent(runtime, entry, runtime_directory(hass, entry))])
+    entities = []
+    if runtime.mobile is not None:
+        if entry.options.get("enable_doorbell", True):
+            entities.append(NeoLightDoorbellEvent(runtime, entry, runtime_directory(hass, entry)))
+        motion_dp = next((str(item["id"]) for item in runtime.coordinator.data.schema
+                          if isinstance(item, dict) and item.get("code") == "movement_detect_pic"
+                          and item.get("type") == "obj" and item.get("mode") == "ro"
+                          and isinstance(item.get("id"), int)), None)
+        if motion_dp:
+            entities.append(NeoLightMotionEvent(runtime, entry, motion_dp))
+    async_add_entities(entities)
+
+
+class NeoLightMotionEvent(CoordinatorEntity, EventEntity):
+    """Expose fresh motion images as HA events without storing their URLs."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "motion_event"
+    _attr_device_class = EventDeviceClass.MOTION
+    _attr_event_types = ["motion"]
+
+    def __init__(self, runtime, entry: ConfigEntry, dp_id: str) -> None:
+        super().__init__(runtime.coordinator)
+        self._dp_id = dp_id
+        host = entry.data["host"]
+        self._attr_unique_id = f"{host}_motion_event"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, host)}, name="NeoLight ALPHA Hybrid",
+            manufacturer="NeoLight", model="ALPHA Hybrid",
+            configuration_url=f"http://{host}/",
+        )
+        initial = (runtime.coordinator.data.dps or {}).get(dp_id)
+        self._deduplicator = MotionDeduplicator(initial)
+
+    @property
+    def available(self) -> bool:
+        return bool(super().available and self.coordinator.data
+                    and self.coordinator.data.cloud_online)
+
+    def _handle_coordinator_update(self) -> None:
+        state = self.coordinator.data
+        raw = state.dps.get(self._dp_id) if state and state.cloud_online else None
+        captured_at = self._deduplicator.observe(raw)
+        if captured_at is not None:
+            self._trigger_event("motion", {"snapshot_captured_at": captured_at})
+        super()._handle_coordinator_update()
 
 
 class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):

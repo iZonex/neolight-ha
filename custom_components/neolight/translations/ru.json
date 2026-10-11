@@ -154,6 +154,11 @@
     }
   },
   "entity": {
+    "event": {
+      "motion_event": {
+        "name": "Движение"
+      }
+    },
     "sensor": {
       "app_call_signal": {
         "name": "Сигнал звонка в приложении",

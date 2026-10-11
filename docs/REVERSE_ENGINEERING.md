@@ -80,6 +80,15 @@ supervised one-time auto release physically opened the Vizit entrance. The
 signal is still polled, so calls may be missed, and the complete call lifecycle
 is not yet verified. Persistent auto unlock is off by default.
 
+The same installation's read-only `movement_detect_pic` DP contains base64
+JSON with `v`, `bucket`, and `files`; the first file path ends in a ten-digit
+Unix timestamp and `.jpeg`. A fresh path can produce a motion event in HA.
+Do not put the bucket, file path, token, or image bytes in a diagnostic event.
+The `doorbell_pic` field was empty in the idle observation, so visitor image
+retrieval remains unverified. The APK's shared Tuya SDK names playback and
+cloud-storage APIs, but their presence alone does not establish that this
+monitor has recordings or an active storage service.
+
 For another model, add a model or capability profile only after comparing its
 live schema and behavior. Do not change the existing mapping globally based
 on one other device. Separate monitor capabilities from entrance-panel wiring:
