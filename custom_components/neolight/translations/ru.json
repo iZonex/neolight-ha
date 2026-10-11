@@ -57,6 +57,7 @@
         "description": "Ручная настройка RTSP и видеомоста.",
         "data": {
           "native_call_control_port": "Порт управления вызовом локального моста (0 — отключено)",
+          "native_talk_port": "Порт микрофона локального моста",
           "restream_url": "RTSP-адрес камеры",
           "stream_id": "UUID потока RTSP",
           "rtsp_user": "Имя пользователя RTSP",

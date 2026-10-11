@@ -57,6 +57,7 @@
         "description": "Manual RTSP and media settings for installations that need them.",
         "data": {
           "native_call_control_port": "Native bridge call control port (0 disables End call)",
+          "native_talk_port": "Native bridge microphone port",
           "restream_url": "Camera RTSP URL",
           "stream_id": "RTSP stream UUID",
           "rtsp_user": "RTSP username",

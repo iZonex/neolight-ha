@@ -51,6 +51,7 @@ Apple Home. See [HACS installation details](docs/HACS.md) or the
 | Automatic unlock | Configurable in HA; one supervised Vizit call physically opened Lock 1 |
 | Apple Home release | Paired, but the physical relay action has not yet been verified |
 | Incoming-call answer/hangup in HA | Controls are available for fresh native call signals; physical behavior on the Vizit adapter still needs verification |
+| Browser microphone in HA | Optional NeoLight Talk dashboard card sends G.711 audio to the native bridge; physical browser-to-panel test remains pending |
 | Motion detection | Switches the paired device's motion detection DP when its runtime schema confirms a writable boolean |
 | SD card | Diagnostic status code and raw storage report from the paired device; meanings and units still need device validation |
 
