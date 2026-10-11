@@ -13,6 +13,7 @@ PANEL_CODES = {
     "lock_1": "accessory_lock",
     "lock_2": "ipc_c_lock",
     "channel": "ipc_c_switch_channel",
+    "motion": "motion_switch",
 }
 
 
@@ -70,6 +71,12 @@ class PanelProfile:
 
     def supports(self, control: str) -> bool:
         return control in self.dp_ids
+
+    def motion_command(self, enabled: bool) -> dict[str, bool]:
+        """Set the app's motion detection switch to an explicit state."""
+        if not self.supports("motion") or type(enabled) is not bool:
+            raise ValueError("Motion detection control is unavailable")
+        return {str(self.dp_ids["motion"]): enabled}
 
     def lock_command(self, lock: str, current_value: bool) -> dict[str, bool]:
         """Build the exact boolean toggle used by the app's Lock buttons."""

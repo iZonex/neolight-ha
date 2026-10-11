@@ -47,10 +47,12 @@ Apple Home. See [HACS installation details](docs/HACS.md) or the
 | Door camera in Home Assistant | Available with a monitor stream UUID or a shared RTSP URL; live audio uses the optional media stack |
 | Door release | Home Assistant Lock 1 physically opened the tested Vizit entrance during an active call |
 | Apple Home doorbell | Live video and speech in both directions worked in the tested installation through Scrypted |
-| Ring event | Experimental cloud event; the tested alarm contains a snapshot timestamp, but polling may miss a call |
+| Ring event | Native bridge sends fresh MQTT calls to HA immediately; the cloud snapshot remains the proof required for automatic opening. Without the optional bridge, HA polls cloud snapshots and may miss short calls |
 | Automatic unlock | Configurable in HA; one supervised Vizit call physically opened Lock 1 |
 | Apple Home release | Paired, but the physical relay action has not yet been verified |
 | Incoming-call answer/hangup in HA | Controls are available for fresh native call signals; physical behavior on the Vizit adapter still needs verification |
+| Motion detection | Switches the paired device's motion detection DP when its runtime schema confirms a writable boolean |
+| SD card | Diagnostic status code and raw storage report from the paired device; meanings and units still need device validation |
 
 The current media stack supports one configured monitor per Home Assistant
 installation. A local-only camera can be configured without an app profile.

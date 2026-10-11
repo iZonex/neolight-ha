@@ -25,6 +25,15 @@ class CallStateTests(unittest.TestCase):
         self.assertIsNone(detector.observe(True, 120))
         self.assertEqual(detector.observe(True, 121).number, 2)
 
+    def test_native_call_and_cloud_snapshot_are_one_episode(self):
+        detector = module.RingEpisodeDetector()
+        gate = module.ReleaseEpisodeGate()
+        self.assertEqual(detector.observe(True, 100, "native").source, "native")
+        self.assertFalse(gate.observe(False, detector.episode_number))
+        self.assertIsNone(detector.observe(True, 105))
+        self.assertTrue(gate.observe(True, detector.episode_number))
+        self.assertFalse(gate.observe(True, detector.episode_number))
+
     def test_release_requires_one_fresh_snapshot_per_episode(self):
         detector = module.RingEpisodeDetector()
         gate = module.ReleaseEpisodeGate()

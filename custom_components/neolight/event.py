@@ -13,6 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
@@ -74,10 +75,23 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
         await super().async_added_to_hass()
         self._last_auto_unlock = dict(self.hass.data[DOMAIN].get(self._status_key, {}))
         await self._video_router.resume()
+        self.async_on_remove(async_dispatcher_connect(
+            self.hass, f"neolight_{self._entry.entry_id}_native_ring", self._on_native_ring
+        ))
+
+    def _on_native_ring(self, signal: dict) -> None:
+        """Notify HA and HomeKit immediately; relay release still needs a snapshot."""
+        episode = self._episodes.observe(True, time.monotonic(), "native")
+        if episode is None:
+            return
+        _LOGGER.info("NeoLight native call episode %s detected", episode.number)
+        self._announce_episode(episode, {"call_type": signal["call_type"]})
 
     @property
     def available(self) -> bool:
-        return bool(super().available and self.coordinator.data.cloud_online)
+        state = self.coordinator.data
+        return bool(super().available and state and
+                    (state.cloud_online or state.native_call is not None))
 
     @property
     def extra_state_attributes(self) -> dict[str, str | int]:
@@ -114,13 +128,7 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
             if event:
                 details["snapshot_captured_at"] = event[0]
                 details["alarm_hash"] = sha256(raw.encode()).hexdigest()[:12]
-            self._trigger_event("ring", details)
-            if (self._entry.options.get("route_video_on_ring")
-                    and self._entry.options.get("call_video_channel", 0) > 0):
-                selected = self._video_router.ring()
-                self.hass.async_create_task(self._notify_after_video_route(selected))
-            else:
-                self.hass.async_create_task(self._notify_homekit_doorbell())
+            self._announce_episode(episode, details)
         if self._release_gate.observe(fresh_snapshot, self._episodes.episode_number):
             event = doorbell_event(raw)
             if event:
@@ -139,6 +147,16 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
                             self._auto_unlock(captured_at, mode)
                         )
         super()._handle_coordinator_update()
+
+    def _announce_episode(self, episode, details: dict) -> None:
+        self._trigger_event("ring", {"source": episode.source,
+                                     "episode": episode.number, **details})
+        if (self._entry.options.get("route_video_on_ring")
+                and self._entry.options.get("call_video_channel", 0) > 0):
+            selected = self._video_router.ring()
+            self.hass.async_create_task(self._notify_after_video_route(selected))
+        else:
+            self.hass.async_create_task(self._notify_homekit_doorbell())
 
     async def _notify_after_video_route(self, selected: asyncio.Event) -> None:
         """Give the video input time to change before HomeKit requests a preview."""

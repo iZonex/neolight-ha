@@ -18,6 +18,7 @@ SCHEMA = [
     {"code": "accessory_lock", "id": "148", "type": "obj", "schema_type": "bool", "mode": "rw"},
     {"code": "ipc_c_lock", "id": "232", "type": "obj", "schema_type": "bool", "mode": "rw"},
     {"code": "ipc_c_switch_channel", "id": "231", "type": "obj", "schema_type": "string", "mode": "rw"},
+    {"code": "motion_switch", "id": "134", "type": "obj", "schema_type": "bool", "mode": "rw"},
 ]
 
 
@@ -36,6 +37,16 @@ class PanelProfileTests(unittest.TestCase):
         self.assertEqual((data["cmd"], data["cc"]), (1, 2))
         self.assertEqual(data["chs"][0]["n"], "DOOR")
         self.assertEqual(module.channel_labels(current), {1: "DOOR", 2: "CAM2"})
+
+    def test_motion_control_is_explicit_and_schema_validated(self):
+        self.assertEqual(self.profile.motion_command(False), {"134": False})
+        self.assertEqual(self.profile.motion_command(True), {"134": True})
+        with self.assertRaises(ValueError):
+            self.profile.motion_command(1)
+        read_only = [{**SCHEMA[-1], "mode": "ro"}]
+        self.assertFalse(module.PanelProfile.from_schema(read_only).supports("motion"))
+        with self.assertRaises(ValueError):
+            module.PanelProfile.from_schema(read_only, required=("motion",))
 
     def test_partial_schema_exposes_only_confirmed_controls(self):
         profile = module.PanelProfile.from_schema(SCHEMA[:1])
