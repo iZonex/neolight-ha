@@ -8,11 +8,27 @@ from hashlib import sha256
 import json
 import re
 import time
+from collections.abc import Mapping
+from typing import Any
 
 
 _SNAPSHOT_TIME = re.compile(r"/(\d{10})\.[A-Za-z0-9]+$")
 _MAX_AGE_SECONDS = 60
 _MAX_CLOCK_LEAD_SECONDS = 5
+
+
+def motion_dp_id(schema: list[Mapping[str, Any]]) -> str | None:
+    """Use only the observed read-only raw image DP, regardless of its wrapper."""
+    if not isinstance(schema, list):
+        return None
+    for item in schema:
+        if (isinstance(item, Mapping) and item.get("code") == "movement_detect_pic"
+                and item.get("type") in {"raw", "obj"} and item.get("mode") == "ro"):
+            try:
+                return str(int(item["id"]))
+            except (KeyError, TypeError, ValueError):
+                return None
+    return None
 
 
 def motion_snapshot(raw: str | None) -> tuple[int, bytes] | None:

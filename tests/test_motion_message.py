@@ -20,6 +20,12 @@ def image(captured_at, token="token"):
 
 
 class MotionMessageTests(unittest.TestCase):
+    def test_observed_read_only_raw_schema(self):
+        schema = [{"code": "movement_detect_pic", "id": 115,
+                   "type": "raw", "mode": "ro"}]
+        self.assertEqual(module.motion_dp_id(schema), "115")
+        self.assertIsNone(module.motion_dp_id([{**schema[0], "mode": "rw"}]))
+
     def test_observed_motion_shape_and_fresh_event(self):
         self.assertEqual(module.motion_snapshot(image(1700000010))[0], 1700000010)
         detector = module.MotionDeduplicator(started_at=1700000000)

@@ -22,7 +22,7 @@ from .call_control import CallControlError, reset_call
 from .call_state import ReleaseEpisodeGate, RingEpisodeDetector
 from .release_policy import release_mode
 from .ring_message import RingDeduplicator, doorbell_event
-from .motion_message import MotionDeduplicator
+from .motion_message import MotionDeduplicator, motion_dp_id
 from .settings import runtime_directory
 from .video_router import VideoRouter
 
@@ -38,10 +38,7 @@ async def async_setup_entry(
     if runtime.mobile is not None:
         if entry.options.get("enable_doorbell", True):
             entities.append(NeoLightDoorbellEvent(runtime, entry, runtime_directory(hass, entry)))
-        motion_dp = next((str(item["id"]) for item in runtime.coordinator.data.schema
-                          if isinstance(item, dict) and item.get("code") == "movement_detect_pic"
-                          and item.get("type") == "obj" and item.get("mode") == "ro"
-                          and isinstance(item.get("id"), int)), None)
+        motion_dp = motion_dp_id(runtime.coordinator.data.schema)
         if motion_dp:
             entities.append(NeoLightMotionEvent(runtime, entry, motion_dp))
     async_add_entities(entities)
