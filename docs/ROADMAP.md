@@ -42,15 +42,18 @@ unanswered notification rather than assuming that an end event will arrive.
 ## Before a stable release
 
 - Move the native P2P session and media relay into the HACS-installed HA
-  integration, with a single session owner and lifecycle cleanup. Keep the
-  current Compose bridge as a tested compatibility path until live video,
-  audio, talkback, concurrent viewing, and restart recovery pass on HA alone.
+  integration, with a single session owner and lifecycle cleanup. Reuse HA's
+  managed go2rtc where available on HA OS and Container. Keep the current
+  Compose bridge as a tested compatibility path until live video, audio,
+  talkback, concurrent viewing, and restart recovery pass on HA alone.
 - Remove the manual app-profile extraction step from normal setup by deriving
   the required app identity from an authorized installation during the HA
   configuration flow. Keep secrets out of releases and diagnostics.
-- Provide an Apple Home doorbell path with verified microphone return from
-  the HACS-installed stack, or keep the Scrypted companion clearly documented
-  for installations that need two-way talk.
+- Add a NeoLight-owned HomeKit accessory with verified iPhone microphone
+  return, pairing, live video, rings, release, and reconnect behavior. The
+  built-in HA HomeKit Bridge is an interim path for camera, panel audio, ring,
+  and lock, but its camera path does not return the iPhone microphone. Keep
+  Scrypted as the tested two-way path until the replacement passes live tests.
 - Verify Apple Home release physically and expose clear command failures.
 - Test HA answer and hangup controls during a real Vizit call; the controls
   already use the observed native call identifier and protocol 308 commands.

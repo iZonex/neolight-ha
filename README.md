@@ -35,9 +35,11 @@ both belong to monitor channel `DOOR`; the `CAM2` channel is separate.
    an app profile from your own installation. Read the
    [installation guide](docs/INSTALL.md) for media services and Apple Home.
 
-HACS installs only the Home Assistant component. The native media bridge,
-go2rtc, and Scrypted are separate services for live audio, talkback, and
-Apple Home. See [HACS installation details](docs/HACS.md) or the
+HACS installs the Home Assistant component. The native media bridge and
+go2rtc are currently separate services for shared live audio and talkback.
+Scrypted is needed only for the verified two-way Apple Home doorbell; the
+built-in HA HomeKit Bridge can expose a limited camera, ring, and lock path
+without it. See [HACS installation details](docs/HACS.md) or the
 [manual installation path](docs/INSTALL.md).
 
 ## Features and current limits

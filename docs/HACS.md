@@ -8,26 +8,55 @@ or Apple Home.
 
 ## What one HACS install provides
 
-The HACS package alone can discover the local monitor, create the HA device,
-show a camera when a working RTSP stream UUID or URL is supplied, and expose
-local availability. Linking a NeoLight app profile in **Configure** adds the
+The HACS package alone can connect to a monitor by its IP address, create the
+HA device, show a camera when a working RTSP stream UUID or URL is supplied,
+and expose local availability. Linking a NeoLight app profile in **Configure** adds the
 cloud backed ring, relay, motion, and device controls. No Docker service is
 required for those controls. The app profile still needs to be generated from
 the owner's installation using the [profile helper](PROFILE_IMPORT.md).
 
 The tested full media path currently uses separate native, go2rtc, and AV mux
 services. They share one P2P session, provide audio and talkback, and keep
-multiple viewers from opening competing streams on the monitor. Scrypted
-publishes the two-way doorbell to Apple Home. HACS only installs files inside
-`custom_components`; it cannot deploy those services into Docker or Scrypted.
+multiple viewers from opening competing streams on the monitor. Scrypted is
+used **only for the Apple Home two-way doorbell**: its Intercom interface
+receives the iPhone microphone and passes it to our native P2P talk socket.
+It is not needed for local availability, HA controls, or a basic camera.
+HACS installs files inside `custom_components`; it does not deploy Docker or
+Scrypted services.
+
+| Installation | What it provides today |
+|---|---|
+| HACS integration | Local monitor, direct camera when configured, optional cloud controls, ring and motion events |
+| HACS + media services | Shared video and panel audio, native call signaling, browser talkback in HA (physical browser test pending) |
+| HACS + media services + Scrypted | The tested Apple Home doorbell with video, ring, and two-way speech |
+
+For an Apple Home setup without Scrypted, Home Assistant's built-in HomeKit
+Bridge can expose the NeoLight camera, doorbell event, motion event, and door
+release entity. Configure the NeoLight camera as a separate HomeKit camera
+accessory, enable camera audio if the source contains it, and link the
+NeoLight doorbell event as its doorbell sensor. This path can show video,
+panel-to-phone audio, notifications, and door release. It does **not** carry
+the iPhone microphone back to the panel, and it does not solve the monitor's
+single-stream contention without a shared source. This alternate HomeKit
+configuration has not yet been physically verified with NeoLight. The
+[HomeKit Bridge documentation](https://www.home-assistant.io/integrations/homekit/) describes
+camera audio, linked doorbell sensors, and locks.
 
 Our target is to make the HA integration run the native session and media
 relay itself, so a HACS install plus HA configuration can provide the full HA
 feature set. That migration must preserve one device session, bounded media
 processes, call cleanup after answer/unlock, and recovery after HA restart.
-Apple Home two-way talk also needs a HomeKit path that can carry the return
-microphone; until that is implemented and verified, Scrypted remains an
-optional companion rather than something HACS can silently install.
+HA OS and HA Container already provide a [managed go2rtc
+instance](https://www.home-assistant.io/integrations/go2rtc/) with the default
+configuration, so the integration should reuse it where available instead of
+starting another copy.
+Full Apple Home two-way talk additionally needs a HomeKit implementation that
+accepts return microphone audio and feeds the native session. HA's current
+HomeKit Bridge camera path only sends audio towards Apple Home. We can replace
+Scrypted with a NeoLight-owned HomeKit accessory inside the integration, but
+that requires implementing and testing pairing, media negotiation, talkback,
+doorbell signals, and reconnection. Until that exists, Scrypted is required
+for the verified two-way Apple Home path.
 
 Each change is checked by HACS validation, hassfest, and a clean HA Container
 boot that copies **only** the HACS integration directory. This boot check does
