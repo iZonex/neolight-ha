@@ -14,7 +14,7 @@ class RingEpisode(NamedTuple):
 
 
 class RingEpisodeDetector:
-    """Accept only fresh snapshot alarms, with a short duplicate guard."""
+    """Merge trusted native calls and fresh snapshot alarms into episodes."""
 
     MERGE_SECONDS = 20
 
@@ -22,7 +22,7 @@ class RingEpisodeDetector:
         self._last_episode_at = float("-inf")
         self._episode_number = 0
 
-    def observe(self, fresh_snapshot: bool, now: float) -> RingEpisode | None:
+    def observe(self, fresh_snapshot: bool, now: float, source: str = "snapshot") -> RingEpisode | None:
         """Return a new episode only for a validated and non-duplicate alarm."""
         if not fresh_snapshot:
             return None
@@ -30,7 +30,7 @@ class RingEpisodeDetector:
             return None
         self._episode_number += 1
         self._last_episode_at = now
-        return RingEpisode(self._episode_number, "snapshot")
+        return RingEpisode(self._episode_number, source)
 
     @property
     def episode_number(self) -> int:

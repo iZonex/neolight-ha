@@ -176,6 +176,14 @@
           "ringing": "Звонит",
           "answered": "Принят"
         }
+      },
+      "sd_status": {
+        "name": "Код состояния SD-карты"
+      }
+    },
+    "switch": {
+      "motion_detection": {
+        "name": "Обнаружение движения"
       }
     }
   }

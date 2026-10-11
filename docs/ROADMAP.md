@@ -42,10 +42,17 @@ unanswered notification rather than assuming that an end event will arrive.
 ## Before a stable release
 
 - Verify Apple Home release physically and expose clear command failures.
-- Add answer and hangup in the HA interface, then test call audio lifecycle.
-- Confirm the call identifier and protocol 308 answer/stop events on this
-  monitor before enabling those controls. The writable `ipc_doorbell_fb` DP
-  used by another Tuya doorbell path is absent from the tested ALPHA Hybrid.
+- Test HA answer and hangup controls during a real Vizit call; the controls
+  already use the observed native call identifier and protocol 308 commands.
+- Add a microphone UI in Home Assistant. The native bridge and Apple Home
+  talkback work, but HA currently exposes answer/hangup buttons only.
+- Verify native call event delivery after deployment and at least one short
+  ring; cloud snapshot polling remains the fallback and release proof.
+- Identify motion event payloads, visitor snapshot retrieval, and archive
+  APIs before exposing history. Motion detection switching and raw SD status
+  are available through the confirmed paired-device schema.
+- Verify inner DOOR analog-input switching and SD/HD stream selection before
+  adding source controls; monitor channel DOOR/CAM selection is separate.
 - Generate the private app profile from an authorized APK/session without
   requiring manual protocol inspection.
 - Confirm clean installation, restart, upgrade, and removal on another host.

@@ -32,6 +32,7 @@ from mobile_api import MobileApiClient, MobileApiError
 from account_identity import native_static_fields
 from call_signaling import ActiveCall, call_command, ended_call_type, incoming_call
 from call_lifecycle import CallLifecycle
+from call_events import CallEventStream
 from panel_protocol import PanelProfile
 from protocol import TALK_START_TYPE, audio_packet, control_packet
 
@@ -225,6 +226,7 @@ class NeoLightSession(StreamSession):
         self.talk_active = False
         self._control_responses: asyncio.Queue[tuple[int, int]] = asyncio.Queue()
         self.call = CallLifecycle()
+        self.call_events = CallEventStream()
 
     async def _async_connect_signaling(self, session_id: str) -> None:
         self._moto = CallAwareMotoClient(
@@ -244,6 +246,7 @@ class NeoLightSession(StreamSession):
     def _on_incoming_call(self, call: ActiveCall) -> None:
         if self.call.receive(call, time.monotonic()):
             LOGGER.info("Incoming %s call is available for Talk", call.call_type)
+            self.call_events.ring(call.call_type)
 
     def _on_call_end(self, call_type: str) -> None:
         if self.call.call and self.call.call.call_type == call_type:
@@ -490,6 +493,12 @@ async def handle_call_control(reader: asyncio.StreamReader, writer: asyncio.Stre
     """Expose bounded call state and commands on localhost only."""
     try:
         command = await asyncio.wait_for(reader.readline(), timeout=2)
+        if command == b"watch\n":
+            session.call_events.add(writer)
+            writer.write(b"ok\n")
+            await writer.drain()
+            await reader.read()
+            return
         if command == b"status\n":
             writer.write(json.dumps(session.call.public_status(
                 time.monotonic(), session.talk_active)).encode() + b"\n")
@@ -520,6 +529,7 @@ async def handle_call_control(reader: asyncio.StreamReader, writer: asyncio.Stre
     except (OSError, asyncio.TimeoutError):
         pass
     finally:
+        session.call_events.remove(writer)
         writer.close()
         await writer.wait_closed()
 

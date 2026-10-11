@@ -17,6 +17,7 @@ async def async_setup_entry(
     entities = []
     if runtime.mobile is not None:
         entities.append(NeoLightAppCallSignal(runtime.coordinator, entry))
+        entities.append(NeoLightSDStatus(runtime.coordinator, entry))
     if runtime.vendor.get("bridge_health_url"):
         entities.append(NeoLightVideoBridgeStatus(runtime.coordinator, entry))
     if entry.options.get("native_call_control_port", 0):
@@ -120,3 +121,46 @@ class NeoLightNativeCallStatus(NeoLightStatusSensor):
         state = self.coordinator.data.native_call
         return {"talk_active": state["talk_active"],
                 "call_type": state.get("call_type"), "age_seconds": state.get("age_seconds")}
+
+
+class NeoLightSDStatus(NeoLightStatusSensor):
+    """Expose the device's raw SD status without guessing undocumented units."""
+
+    _attr_translation_key = "sd_status"
+    _attr_icon = "mdi:sd"
+
+    def __init__(self, coordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "sd_status")
+
+    def _dp_id(self, code: str) -> str | None:
+        state = self.coordinator.data
+        if not state:
+            return None
+        for item in state.schema:
+            if (isinstance(item, dict) and item.get("code") == code
+                    and item.get("type") == "obj" and item.get("mode") == "ro"):
+                try:
+                    return str(int(item["id"]))
+                except (KeyError, TypeError, ValueError):
+                    return None
+        return None
+
+    @property
+    def available(self) -> bool:
+        state = self.coordinator.data
+        dp_id = self._dp_id("sd_status")
+        return bool(state and state.cloud_online and dp_id and
+                    type(state.dps.get(dp_id)) is int)
+
+    @property
+    def native_value(self) -> int | None:
+        return self.coordinator.data.dps[self._dp_id("sd_status")] if self.available else None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        state = self.coordinator.data
+        if not state or not state.cloud_online:
+            return {}
+        dp_id = self._dp_id("sd_storge")
+        storage = state.dps.get(dp_id) if dp_id else None
+        return {"raw_storage": storage} if isinstance(storage, str) else {}

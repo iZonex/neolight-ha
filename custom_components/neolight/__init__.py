@@ -19,6 +19,7 @@ from .client import MonitorClient, MonitorState
 from .call_control import read_call_status
 from .const import DOMAIN, PLATFORMS, POLL_INTERVAL
 from .mobile_api import MobileApiClient, MobileApiError
+from .native_events import watch_native_calls
 from .profile import ha_static_fields
 from .panel_protocol import PanelProfile
 from .schema_cache import load_cached_schema
@@ -38,6 +39,7 @@ class NeoLightRuntime:
     mobile: MobileApiClient | None
     coordinator: DataUpdateCoordinator[MonitorState]
     vendor: dict
+    call_watch_task: asyncio.Task | None = None
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -204,6 +206,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_config_entry_first_refresh()
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = NeoLightRuntime(client, mobile, coordinator, vendor)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    port = entry.options.get("native_call_control_port", 0)
+    if port:
+        hass.data[DOMAIN][entry.entry_id].call_watch_task = hass.async_create_task(
+            watch_native_calls(hass, entry.entry_id, port)
+        )
     entry.async_on_unload(entry.add_update_listener(async_update_options))
     return True
 
@@ -217,5 +224,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload NeoLight platforms."""
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
-        hass.data[DOMAIN].pop(entry.entry_id, None)
+        runtime = hass.data[DOMAIN].pop(entry.entry_id, None)
+        if runtime and runtime.call_watch_task:
+            runtime.call_watch_task.cancel()
+            try:
+                await runtime.call_watch_task
+            except asyncio.CancelledError:
+                pass
     return unloaded

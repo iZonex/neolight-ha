@@ -176,6 +176,14 @@
           "ringing": "Ringing",
           "answered": "Answered"
         }
+      },
+      "sd_status": {
+        "name": "SD card status code"
+      }
+    },
+    "switch": {
+      "motion_detection": {
+        "name": "Motion detection"
       }
     }
   }
