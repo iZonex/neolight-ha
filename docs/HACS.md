@@ -6,6 +6,33 @@ go2rtc, and optional Scrypted plugin are separate services; install them from
 the [full installation guide](INSTALL.md) when you need live audio, talkback,
 or Apple Home.
 
+## What one HACS install provides
+
+The HACS package alone can discover the local monitor, create the HA device,
+show a camera when a working RTSP stream UUID or URL is supplied, and expose
+local availability. Linking a NeoLight app profile in **Configure** adds the
+cloud backed ring, relay, motion, and device controls. No Docker service is
+required for those controls. The app profile still needs to be generated from
+the owner's installation using the [profile helper](PROFILE_IMPORT.md).
+
+The tested full media path currently uses separate native, go2rtc, and AV mux
+services. They share one P2P session, provide audio and talkback, and keep
+multiple viewers from opening competing streams on the monitor. Scrypted
+publishes the two-way doorbell to Apple Home. HACS only installs files inside
+`custom_components`; it cannot deploy those services into Docker or Scrypted.
+
+Our target is to make the HA integration run the native session and media
+relay itself, so a HACS install plus HA configuration can provide the full HA
+feature set. That migration must preserve one device session, bounded media
+processes, call cleanup after answer/unlock, and recovery after HA restart.
+Apple Home two-way talk also needs a HomeKit path that can carry the return
+microphone; until that is implemented and verified, Scrypted remains an
+optional companion rather than something HACS can silently install.
+
+Each change is checked by HACS validation, hassfest, and a clean HA Container
+boot that copies **only** the HACS integration directory. This boot check does
+not prove account login, panel audio, or Apple Home behavior on another model.
+
 [Open NeoLight directly in HACS](https://my.home-assistant.io/redirect/hacs_repository/?owner=iZonex&repository=neolight-ha&category=integration).
 This My Home Assistant link opens the repository in your own instance; HACS
 must already be installed. It does not install the integration automatically.
