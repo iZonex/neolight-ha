@@ -48,9 +48,10 @@ unanswered notification rather than assuming that an end event will arrive.
   including close/timeout recovery and Apple Home contention.
 - Verify native call event delivery after deployment and at least one short
   ring; cloud snapshot polling remains the fallback and release proof.
-- Identify motion event payloads, visitor snapshot retrieval, and archive
-  APIs before exposing history. Motion detection switching and raw SD status
-  are available through the confirmed paired-device schema.
+- Identify visitor snapshot retrieval and archive APIs before exposing history.
+  The tested schema exposes timestamped motion image notifications; HA now
+  emits a motion event from fresh notifications. Motion switching and raw SD
+  status are also available. Polling may miss short-lived notifications.
 - Verify inner DOOR analog-input switching and SD/HD stream selection before
   adding source controls; monitor channel DOOR/CAM selection is separate.
 - Generate the private app profile from an authorized APK/session without

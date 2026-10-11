@@ -154,6 +154,11 @@
     }
   },
   "entity": {
+    "event": {
+      "motion_event": {
+        "name": "Motion"
+      }
+    },
     "sensor": {
       "app_call_signal": {
         "name": "App call signal",

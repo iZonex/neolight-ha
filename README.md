@@ -53,6 +53,7 @@ Apple Home. See [HACS installation details](docs/HACS.md) or the
 | Incoming-call answer/hangup in HA | Controls are available for fresh native call signals; physical behavior on the Vizit adapter still needs verification |
 | Browser microphone in HA | Optional NeoLight Talk dashboard card sends G.711 audio to the native bridge; physical browser-to-panel test remains pending |
 | Motion detection | Switches the paired device's motion detection DP when its runtime schema confirms a writable boolean |
+| Motion event | Emits a Home Assistant motion event from a fresh, timestamped `movement_detect_pic` notification; cloud polling can miss brief events |
 | SD card | Diagnostic status code and raw storage report from the paired device; meanings and units still need device validation |
 
 The current media stack supports one configured monitor per Home Assistant
