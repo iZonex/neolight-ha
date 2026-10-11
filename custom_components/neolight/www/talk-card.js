@@ -73,15 +73,17 @@ class NeoLightTalkCard extends HTMLElement {
 
   _update() {
     if (!this._config || !this._hass || !this.shadowRoot.querySelector(".status")) return;
+    const microphoneAvailable = window.isSecureContext && !!navigator.mediaDevices?.getUserMedia;
     const call = this._config.call_entity && this._hass.states[this._config.call_entity];
     const camera = this._hass.states[this._config.camera];
     this.shadowRoot.querySelector(".title").textContent = this._config.title || "NeoLight";
     this.shadowRoot.querySelector(".talk").textContent = this._talking
       ? this._label("End conversation", "Завершить разговор")
       : this._label("Talk", "Говорить");
-    this.shadowRoot.querySelector(".talk").disabled = this._busy;
+    this.shadowRoot.querySelector(".talk").disabled = this._busy || (!this._talking && !microphoneAvailable);
     this.shadowRoot.querySelector(".camera").textContent = this._label("Open camera", "Открыть камеру");
     const state = this._talking ? this._label("Microphone active", "Микрофон включён")
+      : !microphoneAvailable ? this._label("Open Home Assistant over HTTPS to use the microphone", "Откройте Home Assistant по HTTPS для работы микрофона")
       : call?.state === "ringing" ? this._label("Ringing", "Звонит")
       : call?.state === "answered" ? this._label("Conversation active", "Идёт разговор")
       : camera?.state === "unavailable" ? this._label("Camera unavailable", "Камера недоступна")
@@ -133,6 +135,7 @@ class NeoLightTalkCard extends HTMLElement {
 
   async _start() {
     if (this._busy || this._talking) return;
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) return;
     this._busy = true;
     this._error = "";
     this._update();

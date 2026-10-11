@@ -128,6 +128,9 @@ camera: camera.neolight_alpha_hybrid_door_camera
 call_entity: sensor.neolight_alpha_hybrid_native_call # optional
 ```
 
+When HA is opened over plain HTTP, the card shows the HTTPS requirement and
+disables **Talk**. Camera viewing and the other HA controls remain available.
+
 Use the camera entity ID from your own HA installation. **Talk** opens the
 microphone and native call, **End conversation** closes both. Closing the
 card or losing the browser connection also ends the native talk socket after
