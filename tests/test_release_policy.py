@@ -29,6 +29,28 @@ class ReleasePolicyTests(unittest.TestCase):
                    "auto_unlock_test_deadline": 1001}
         self.assertIsNone(module.release_mode(options, 1000, 1003, False))
 
+    def test_native_vizit_call_can_release_without_a_snapshot(self):
+        options = {"auto_unlock_on_ring": True}
+        signal = {"call_type": "ac_doorbell", "received_at": 1000.4}
+        self.assertEqual(
+            module.native_release_mode(options, signal, 1002, False), "persistent"
+        )
+        self.assertEqual(
+            module.native_release_mode(options, signal, 1010.1, False), "persistent"
+        )
+        self.assertIsNone(module.native_release_mode(options, signal, 1011, False))
+        self.assertIsNone(module.native_release_mode(options, signal, 1002, True))
+
+    def test_native_release_rejects_other_or_untrusted_signals(self):
+        options = {"auto_unlock_on_ring": True}
+        for signal in (
+            {"call_type": "doorbell", "received_at": 1000},
+            {"call_type": "ac_doorbell", "received_at": "1000"},
+            {"call_type": "ac_doorbell", "received_at": 1010},
+        ):
+            with self.subTest(signal=signal):
+                self.assertIsNone(module.native_release_mode(options, signal, 1002, False))
+
 
 if __name__ == "__main__":
     unittest.main()
