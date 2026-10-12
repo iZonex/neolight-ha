@@ -46,6 +46,14 @@ class CallStateTests(unittest.TestCase):
         self.assertEqual(detector.observe(True, 126).number, 2)
         self.assertTrue(gate.observe(True, detector.episode_number))
 
+    def test_native_release_prevents_duplicate_snapshot_release(self):
+        detector = module.RingEpisodeDetector()
+        gate = module.ReleaseEpisodeGate()
+        episode = detector.observe(True, 100, "native")
+        self.assertTrue(gate.observe(True, episode.number))
+        self.assertIsNone(detector.observe(True, 105))
+        self.assertFalse(gate.observe(True, detector.episode_number))
+
     def test_resolves_only_read_only_doorbell_enums(self):
         valid = lambda code, dp_id: {"code": code, "id": dp_id, "type": "obj",
                                       "mode": "ro", "property": {"type": "enum",

@@ -39,13 +39,13 @@ class RingEpisodeDetector:
 
 
 class ReleaseEpisodeGate:
-    """Require fresh snapshot evidence and consume it once per call."""
+    """Consume trusted native or snapshot evidence once per call."""
 
     def __init__(self) -> None:
         self._last_evidenced_episode = 0
 
-    def observe(self, fresh_snapshot: bool, episode_number: int) -> bool:
-        if not fresh_snapshot or episode_number <= self._last_evidenced_episode:
+    def observe(self, fresh_evidence: bool, episode_number: int) -> bool:
+        if not fresh_evidence or episode_number <= self._last_evidenced_episode:
             return False
         self._last_evidenced_episode = episode_number
         return True

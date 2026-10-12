@@ -535,7 +535,7 @@ async def handle_call_control(reader: asyncio.StreamReader, writer: asyncio.Stre
 
 
 async def run_once() -> None:
-    config, identity, uid, _ = await session_config()
+    config, identity, uid, _ = await asyncio.wait_for(session_config(), timeout=75)
     ffmpeg, audio = await publish_process()
     video_ffmpeg, video = await video_publish_process()
     session = NeoLightSession(config, identity, uid, video.write, audio.write)
@@ -554,7 +554,7 @@ async def run_once() -> None:
     ffmpeg_log = asyncio.create_task(log_ffmpeg())
     video_ffmpeg_log = asyncio.create_task(log_video_ffmpeg())
     try:
-        await session.async_start()
+        await asyncio.wait_for(session.async_start(), timeout=30)
         session.enable_audio()
         talk_server = await asyncio.start_server(
             lambda reader, writer: handle_talk(reader, writer, session), "127.0.0.1", TALK_PORT,
@@ -597,7 +597,11 @@ async def run_once() -> None:
         if talk_server is not None:
             talk_server.close()
             await talk_server.wait_closed()
-        await session.async_close()
+        try:
+            await asyncio.wait_for(session.async_close(), timeout=10)
+        except (OSError, RuntimeError, asyncio.TimeoutError) as error:
+            LOGGER.warning("P2P cleanup failed; retrying with a new session: %s",
+                           type(error).__name__)
         video.close()
         audio.close()
         if ffmpeg.returncode is None:

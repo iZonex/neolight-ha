@@ -49,7 +49,7 @@ without it. See [HACS installation details](docs/HACS.md) or the
 | Door camera in Home Assistant | Available with a monitor stream UUID or a shared RTSP URL; live audio uses the optional media stack |
 | Door release | Home Assistant Lock 1 physically opened the tested Vizit entrance during an active call |
 | Apple Home doorbell | Live video and speech in both directions worked in the tested installation through Scrypted |
-| Ring event | Native bridge sends fresh MQTT calls to HA immediately; the cloud snapshot remains the proof required for automatic opening. Without the optional bridge, HA polls cloud snapshots and may miss short calls |
+| Ring event | Native bridge sends fresh MQTT calls to HA immediately. A fresh `ac_doorbell` native call or a new timestamped cloud snapshot can request automatic opening once per call. Without the optional bridge, HA polls cloud snapshots and may miss short calls |
 | Automatic unlock | Configurable in HA; one supervised Vizit call physically opened Lock 1 |
 | Apple Home release | Paired, but the physical relay action has not yet been verified |
 | Incoming-call answer/hangup in HA | Controls are available for fresh native call signals; physical behavior on the Vizit adapter still needs verification |

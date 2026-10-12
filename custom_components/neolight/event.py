@@ -9,7 +9,7 @@ import aiohttp
 
 from homeassistant.components.event import EventDeviceClass, EventEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -20,7 +20,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .const import AUTO_UNLOCK_SAFETY_HOLD, DOMAIN
 from .call_control import CallControlError, reset_call
 from .call_state import ReleaseEpisodeGate, RingEpisodeDetector
-from .release_policy import release_mode
+from .release_policy import native_release_mode, release_mode
 from .ring_message import RingDeduplicator, doorbell_event
 from .motion_message import MotionDeduplicator, motion_dp_id
 from .settings import runtime_directory
@@ -121,13 +121,19 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
             self.hass, f"neolight_{self._entry.entry_id}_native_ring", self._on_native_ring
         ))
 
+    @callback
     def _on_native_ring(self, signal: dict) -> None:
-        """Notify HA and HomeKit immediately; relay release still needs a snapshot."""
+        """Handle a fresh P2P call on HA's event loop."""
         episode = self._episodes.observe(True, time.monotonic(), "native")
         if episode is None:
             return
         _LOGGER.info("NeoLight native call episode %s detected", episode.number)
         self._announce_episode(episode, {"call_type": signal["call_type"]})
+        mode = native_release_mode(
+            self._entry.options, signal, time.time(), AUTO_UNLOCK_SAFETY_HOLD
+        )
+        if mode and self._release_gate.observe(True, episode.number):
+            self._schedule_auto_unlock(signal["received_at"], mode, "native")
 
     @property
     def available(self) -> bool:
@@ -140,11 +146,15 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
         """Expose the API result without claiming that the physical door moved."""
         return dict(self._last_auto_unlock)
 
-    def _set_auto_unlock_status(self, status: str, relay: str) -> None:
+    def _set_auto_unlock_status(self, status: str, relay: str,
+                                source: str | None = None) -> None:
         self._last_auto_unlock = {
             "last_auto_unlock_status": status,
             "last_auto_unlock_relay": relay,
             "last_auto_unlock_at": int(time.time()),
+            "last_auto_unlock_source": source or self._last_auto_unlock.get(
+                "last_auto_unlock_source", "unknown"
+            ),
         }
         self.hass.data[DOMAIN][self._status_key] = dict(self._last_auto_unlock)
         self.async_write_ha_state()
@@ -178,17 +188,23 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
                 mode = release_mode(
                     self._entry.options, captured_at, time.time(), AUTO_UNLOCK_SAFETY_HOLD
                 )
-                if mode and (self._pending_unlock is None or self._pending_unlock.done()):
-                    if mode != "once" or not self._test_consumed:
-                        self._test_consumed = mode == "once"
-                        _LOGGER.info("NeoLight auto unlock requested for fresh ring (%s)", mode)
-                        self._set_auto_unlock_status(
-                            "scheduled", self._entry.options.get("auto_unlock_relay", "lock_1")
-                        )
-                        self._pending_unlock = self.hass.async_create_task(
-                            self._auto_unlock(captured_at, mode)
-                        )
+                if mode:
+                    self._schedule_auto_unlock(captured_at, mode, "snapshot")
         super()._handle_coordinator_update()
+
+    def _schedule_auto_unlock(self, captured_at: float, mode: str, source: str) -> None:
+        if self._pending_unlock is not None and not self._pending_unlock.done():
+            return
+        if mode == "once" and self._test_consumed:
+            return
+        self._test_consumed = mode == "once"
+        _LOGGER.info("NeoLight auto unlock requested for fresh %s call (%s)", source, mode)
+        self._set_auto_unlock_status(
+            "scheduled", self._entry.options.get("auto_unlock_relay", "lock_1"), source
+        )
+        self._pending_unlock = self.hass.async_create_task(
+            self._auto_unlock(captured_at, mode)
+        )
 
     def _announce_episode(self, episode, details: dict) -> None:
         self._trigger_event("ring", {"source": episode.source,
@@ -226,7 +242,7 @@ class NeoLightDoorbellEvent(CoordinatorEntity, EventEntity):
         except (aiohttp.ClientError, OSError, asyncio.TimeoutError) as error:
             _LOGGER.debug("NeoLight HomeKit doorbell relay unavailable: %s", error)
 
-    async def _auto_unlock(self, captured_at: int, mode: str) -> None:
+    async def _auto_unlock(self, captured_at: float, mode: str) -> None:
         """Use the same validated relay button as a manual HA press."""
         relay = self._entry.options.get("auto_unlock_relay", "lock_1")
         try:

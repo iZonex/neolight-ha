@@ -25,20 +25,25 @@ The cloud acknowledgement does not prove
 that the physical lock moved. On the tested Vizit adapter, Lock 1 opened the
 door during an active call. Lock 2's target is unknown.
 
-The ring event uses the cloud `alarm_message` DP. One captured Vizit call
+The fallback ring event uses the cloud `alarm_message` DP. One captured Vizit call
 contained a snapshot filename with a Unix timestamp one second before the
 observed MQTT update. The event parser requires that timestamp to be recent,
 newer than the current HA runtime, and attached to a snapshot path it has not
 seen. This rejects the stale value previously replayed after reconnecting.
 The cloud DP is still polled and can miss a call. A supervised Vizit call
 physically opened Lock 1 after one timestamped event and one cloud command.
-The HA event detector accepts only a fresh timestamped snapshot. The app
-`callStatus` value stayed `0` for many hours on the tested monitor, so it is
+The HA cloud event detector accepts only a fresh timestamped snapshot. A
+separate localhost watcher accepts a fresh native `ac_doorbell` call from the
+paired P2P session. Either signal can request one auto-release per merged
+episode; the native call signal was observed while the app push setting
+suppressed cloud snapshots. The app `callStatus` value stayed `0` for many
+hours on the tested monitor, so it is
 diagnostic only and never creates a ring or blocks a new snapshot. Distinct
 snapshots within 20 seconds are merged conservatively, which can hide a very
 quick second call. This does not make cloud polling lossless.
 Automatic unlock is off by default and requires the HA switch. Each command
-requires a timestamped snapshot captured within ten seconds. The one-time test
+requires a fresh native call or timestamped snapshot seen within ten seconds.
+The one-time test
 expires after fifteen minutes and disarms after its first attempt.
 
 The native bridge uses `tuya-ipc-p2p-sdk` for its encrypted session. It signs

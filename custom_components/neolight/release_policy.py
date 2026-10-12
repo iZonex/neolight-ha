@@ -11,7 +11,7 @@ MAX_CLOCK_LEAD = 2
 
 
 def release_mode(
-    options: Mapping[str, Any], captured_at: int, now: float, safety_hold: bool
+    options: Mapping[str, Any], captured_at: float, now: float, safety_hold: bool
 ) -> str | None:
     """Return the permitted mode for one timestamped call, if any."""
     if captured_at > now + MAX_CLOCK_LEAD or now - captured_at > MAX_RELEASE_AGE:
@@ -24,3 +24,16 @@ def release_mode(
     if not safety_hold and options.get("auto_unlock_on_ring", False):
         return "persistent"
     return None
+
+
+def native_release_mode(
+    options: Mapping[str, Any], signal: Mapping[str, Any], now: float,
+    safety_hold: bool,
+) -> str | None:
+    """Permit a fresh, authenticated Vizit call without a cloud snapshot."""
+    if signal.get("call_type") != "ac_doorbell":
+        return None
+    received_at = signal.get("received_at")
+    if type(received_at) not in (int, float):
+        return None
+    return release_mode(options, received_at, now, safety_hold)

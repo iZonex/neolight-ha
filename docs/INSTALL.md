@@ -163,15 +163,20 @@ HomeKit Bridge; its physical action from Apple Home remains unverified.
 - Automatic unlock is off by default. Before enabling the **Auto unlock on
   ring** switch, use **Unlock once on the next ring** in the integration options
   for a supervised physical test. It arms a single Lock 1 release for fifteen
-  minutes, accepts only a new timestamped call seen within ten seconds of its
-  snapshot, and disarms after the attempt or expiry. Check the HA log and the
+  minutes, accepts only a fresh native call or timestamped snapshot seen
+  within ten seconds, and disarms after the attempt or expiry. Check the HA log and the
   physical door before enabling the persistent switch.
-- The integration triggers a ring only from a fresh timestamped snapshot alarm.
-  It also reports the APK's `callStatus` for diagnostics, but that flag may stay
-  active for hours and cannot establish a new entrance call. Very short calls
-  can still end between polls; a missed call cannot trigger automatic release.
+- With the native bridge configured, a fresh `ac_doorbell` call can trigger
+  automatic release without waiting for an app push snapshot. The same call's
+  later cloud snapshot cannot trigger a second release. This path was added
+  after observing that disabling app push suppressed the snapshot but not the
+  native call signal; physical auto-release with push disabled still needs a
+  supervised check. Without the native bridge, HA relies on fresh timestamped
+  snapshot alarms and may miss short calls. The APK's `callStatus` is only a
+  diagnostic flag because it can remain active for hours.
 - The Doorbell event's `last_auto_unlock_status` attribute reports the last
-  attempt. `command_acknowledged` means the API accepted a relay command; it
+  attempt; `last_auto_unlock_source` identifies `native` or `snapshot`.
+  `command_acknowledged` means the API accepted a relay command; it
   does not prove the physical door opened. The attributes clear after an HA
   restart.
 - Apple Home Talk sends a Tuya call `accept` for a recent, supported video

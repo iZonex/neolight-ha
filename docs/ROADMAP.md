@@ -21,7 +21,7 @@ command acknowledged by the account API, and the owner confirmed that the
 entrance opened. Persistent mode is available but off by default; missed rings
 and other wiring modes still need testing.
 
-The ring detector accepts only fresh timestamped snapshots. A later read-only
+The cloud ring detector accepts only fresh timestamped snapshots. A later read-only
 check showed the app `callStatus=0` persisting for hours, so it cannot establish
 a new entrance call or suppress a fresh snapshot. The duplicate window is
 covered by offline tests.
@@ -59,8 +59,9 @@ unanswered notification rather than assuming that an end event will arrive.
   already use the observed native call identifier and protocol 308 commands.
 - Physically verify the HA browser microphone card during a real call,
   including close/timeout recovery and Apple Home contention.
-- Verify native call event delivery after deployment and at least one short
-  ring; cloud snapshot polling remains the fallback and release proof.
+- Verify native auto-release with app push disabled during a supervised Vizit
+  call. A fresh `ac_doorbell` P2P call now permits one release without a cloud
+  snapshot; cloud snapshot polling remains the fallback when the bridge is absent.
 - Identify visitor snapshot retrieval and archive APIs before exposing history.
   The tested schema exposes timestamped motion image notifications; HA now
   emits a motion event from fresh notifications. Motion switching and raw SD
